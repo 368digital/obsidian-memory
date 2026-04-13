@@ -1,0 +1,289 @@
+/* === Dashboard === */
+.claude-memory-dashboard {
+  padding: 16px;
+}
+
+.cm-dashboard-header {
+  margin-bottom: 20px;
+}
+
+.cm-dashboard-header h2 {
+  margin: 0 0 4px 0;
+}
+
+.cm-stats {
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.cm-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.cm-column h3 {
+  margin: 0 0 8px 0;
+  font-size: 0.95em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.cm-column h4 {
+  margin: 12px 0 4px 0;
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+
+/* === Items === */
+.cm-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cm-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cm-item-name {
+  font-size: 0.9em;
+}
+
+.cm-item-desc {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  width: 100%;
+}
+
+/* === Badges === */
+.cm-badge {
+  font-size: 0.7em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.cm-status-active {
+  background: var(--color-blue);
+  color: white;
+}
+
+.cm-status-complete {
+  background: var(--color-green);
+  color: white;
+}
+
+.cm-status-blocked {
+  background: var(--color-red);
+  color: white;
+}
+
+.cm-status-paused {
+  background: var(--color-yellow);
+  color: var(--text-normal);
+}
+
+.cm-date-badge {
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.cm-type-user { background: #e8d44d33; color: var(--text-normal); }
+.cm-type-feedback { background: #4da6e833; color: var(--text-normal); }
+.cm-type-project { background: #4de88d33; color: var(--text-normal); }
+.cm-type-reference { background: #e8844d33; color: var(--text-normal); }
+
+/* === Tags === */
+.cm-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.cm-tag {
+  font-size: 0.7em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+/* === Date === */
+.cm-date {
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+
+/* === Empty state === */
+.cm-empty {
+  color: var(--text-faint);
+  font-size: 0.85em;
+  padding: 8px 0;
+}
+
+/* === Timeline === */
+.claude-memory-timeline {
+  padding: 16px;
+}
+
+.cm-timeline-header {
+  margin-bottom: 16px;
+}
+
+.cm-timeline-header h2 {
+  display: inline;
+  margin-right: 8px;
+}
+
+.cm-related {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--background-secondary);
+  border-radius: 8px;
+}
+
+.cm-related h3 {
+  margin: 0 0 8px 0;
+  font-size: 0.9em;
+}
+
+.cm-related-item {
+  padding: 4px 0;
+  display: flex;
+  gap: 8px;
+}
+
+.cm-related-name {
+  font-weight: 500;
+  font-size: 0.9em;
+}
+
+.cm-related-reason {
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.cm-timeline {
+  position: relative;
+  padding-left: 20px;
+}
+
+.cm-timeline::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 32px;
+  bottom: 0;
+  width: 2px;
+  background: var(--background-modifier-border);
+}
+
+.cm-timeline-entry {
+  position: relative;
+  padding: 8px 0 8px 16px;
+  cursor: pointer;
+}
+
+.cm-timeline-entry:hover {
+  background: var(--background-modifier-hover);
+  border-radius: 6px;
+}
+
+.cm-timeline-dot {
+  position: absolute;
+  left: -17px;
+  top: 14px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-blue);
+  border: 2px solid var(--background-primary);
+}
+
+.cm-timeline-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* === Stream Picker === */
+.cm-stream-picker {
+  margin-top: 12px;
+}
+
+/* === Sidebar === */
+.claude-memory-sidebar {
+  padding: 8px;
+}
+
+.cm-filter-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.cm-filter-btn {
+  font-size: 0.8em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.cm-filter-btn.cm-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.cm-sidebar-counts {
+  font-size: 0.75em;
+  color: var(--text-faint);
+  margin-bottom: 12px;
+}
+
+.cm-sidebar-section {
+  margin-bottom: 12px;
+}
+
+.cm-sidebar-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85em;
+  font-weight: 600;
+  margin-bottom: 4px;
+  padding: 2px 0;
+}
+
+.cm-count {
+  font-size: 0.8em;
+  color: var(--text-faint);
+}
+
+.cm-sidebar-item {
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85em;
+}
+
+.cm-sidebar-item:hover {
+  background: var(--background-modifier-hover);
+}
