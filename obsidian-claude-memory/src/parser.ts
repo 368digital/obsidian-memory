@@ -3,10 +3,12 @@ import {
   MemoryFile,
   SessionFile,
   StreamFile,
+  BaseFile,
   CLAUDE_MEMORY_DIR,
   MEMORIES_DIR,
   SESSIONS_DIR,
   STREAMS_DIR,
+  BASES_DIR,
 } from './types';
 
 export function parseFrontmatter(content: string): { meta: Record<string, unknown>; body: string } {
@@ -72,11 +74,12 @@ export function extractWikilinks(content: string): string[] {
   return [...matches].map((m) => m[1]);
 }
 
-export function getFileCategory(path: string): 'memory' | 'session' | 'stream' | 'graph' | 'index' | 'unknown' {
+export function getFileCategory(path: string): 'memory' | 'session' | 'stream' | 'base' | 'graph' | 'index' | 'unknown' {
   if (path.endsWith('MEMORY.md')) return 'index';
   if (path.includes(`${MEMORIES_DIR}/`)) return 'memory';
   if (path.includes(`${SESSIONS_DIR}/`)) return 'session';
   if (path.includes(`${STREAMS_DIR}/`)) return 'stream';
+  if (path.includes(`${BASES_DIR}/`)) return 'base';
   if (path.includes('graph/')) return 'graph';
   return 'unknown';
 }
@@ -101,6 +104,8 @@ export function parseSessionFile(path: string, content: string): SessionFile {
     date: (meta.date as string) || '',
     duration: (meta.duration as string) || '',
     streams: (meta.streams as string[]) || [],
+    bases: (meta.bases as string[]) || [],
+    continues: (meta.continues as string) || '',
     status: (meta.status as SessionFile['status']) || 'completed',
     content: body,
     wikilinks: extractWikilinks(content),
@@ -123,14 +128,30 @@ export function parseStreamFile(path: string, content: string): StreamFile {
   };
 }
 
+export function parseBaseFile(path: string, content: string): BaseFile {
+  const { meta, body } = parseFrontmatter(content);
+  return {
+    path,
+    name: (meta.name as string) || path.split('/').pop()?.replace('.md', '') || '',
+    description: (meta.description as string) || '',
+    paths: (meta.paths as string[]) || [],
+    tags: (meta.tags as string[]) || [],
+    created: (meta.created as string) || '',
+    content: body,
+    wikilinks: extractWikilinks(content),
+  };
+}
+
 export async function loadMemoryIndex(vault: Vault): Promise<{
   memories: MemoryFile[];
   sessions: SessionFile[];
   streams: StreamFile[];
+  bases: BaseFile[];
 }> {
   const memories: MemoryFile[] = [];
   const sessions: SessionFile[] = [];
   const streams: StreamFile[] = [];
+  const bases: BaseFile[] = [];
 
   const files = vault.getMarkdownFiles().filter((f) => f.path.startsWith(CLAUDE_MEMORY_DIR + '/'));
 
@@ -148,10 +169,13 @@ export async function loadMemoryIndex(vault: Vault): Promise<{
       case 'stream':
         streams.push(parseStreamFile(file.path, content));
         break;
+      case 'base':
+        bases.push(parseBaseFile(file.path, content));
+        break;
     }
   }
 
   sessions.sort((a, b) => b.date.localeCompare(a.date));
 
-  return { memories, sessions, streams };
+  return { memories, sessions, streams, bases };
 }
