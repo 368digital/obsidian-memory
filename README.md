@@ -10,10 +10,9 @@ Claude Code keeps detailed records of every work session, decisions, and work di
 
 **Prerequisites:** [Claude Code](https://claude.ai/claude-code) + [Obsidian](https://obsidian.md) installed.
 
-1. **Install the skill** (once, globally):
+1. **Install** (once, globally):
    ```bash
-   git clone https://github.com/368digital/obsidian-memory.git
-   cp -r obsidian-memory/skills/obsidian-memory ~/.claude/skills/obsidian-memory-skill
+   claude /install-plugin 368digital/obsidian-memory
    ```
 
 2. **Initialize in any project** (run in Claude Code):
@@ -29,7 +28,7 @@ Claude Code keeps detailed records of every work session, decisions, and work di
 
 3. **Open the project folder in Obsidian** — the vault is ready, plugin is active.
 
-That's it. No manual plugin installation, no vault setup. Everything is handled by `/obs-mem init`.
+That's it. One command to install, one command to init per project, then open in Obsidian.
 
 ## Components
 
