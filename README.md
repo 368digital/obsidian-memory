@@ -1,164 +1,174 @@
 # obsidian-memory
 
-Система памяти проекта для Claude Code с визуализацией в Obsidian.
+Project memory system for Claude Code with Obsidian visualization.
 
-Claude Code ведёт подробные записи о каждой рабочей сессии, решениях, направлениях работы — а Obsidian показывает всё это как связанный граф с навигацией, дашбордом и таймлайном.
+Claude Code keeps detailed records of every work session, decisions, and work directions — Obsidian displays it all as a connected graph with navigation, dashboard, and timeline.
 
-## Из чего состоит
+## Components
 
-**Скилл для Claude Code** — набор инструкций, которые Claude выполняет автоматически: создаёт файл сессии при каждом диалоге, записывает решения и прогресс, обновляет индекс памяти. Скилл активируется сам, если в проекте есть папка `claude-memory/`.
+**Claude Code Skill** — a set of instructions Claude follows automatically: creates a session file for each conversation, records decisions and progress, updates the memory index. The skill activates automatically when the project has a `claude-memory/` directory.
 
-**Плагин для Obsidian** — визуализирует содержимое `claude-memory/` внутри Obsidian: sidebar со списком баз, сессий и памяти, дашборд со статистикой, таймлайн с фильтрацией, лог изменений в реальном времени.
+**Obsidian Plugin** — visualizes `claude-memory/` contents inside Obsidian: sidebar with bases, sessions, and memories; dashboard with statistics; timeline with filtering; real-time file change log for the entire project.
 
-## Как это работает
+## How It Works
 
-### Сессии
+### Sessions
 
-Каждый диалог с Claude — это отдельная сессия. При старте Claude создаёт файл в `claude-memory/sessions/`, в процессе работы записывает ключевые решения, затронутые файлы, коммиты. При завершении — добавляет следующие шаги и помечает сессию как завершённую.
+Every conversation with Claude is a separate session. At start, Claude creates a file in `claude-memory/sessions/`, records key decisions, touched files (as `[[wikilinks]]`), and commits during work. At the end — adds next steps and marks the session as completed.
 
-Сессии связываются друг с другом через поле `continues` — цепочка продолжений видна в графе Obsidian.
+Sessions are linked to each other via the `continues` field — the chain of continuations is visible in the Obsidian graph.
 
-### Базы
+### Bases
 
-Базы — направления работы в проекте. Например, «Плагин Obsidian» или «API интеграция». Каждая база — файл в `claude-memory/bases/` с описанием, тегами и хронологией.
+Bases are work directions in the project. For example, "Backend API" or "Frontend UI". Each base is a file in `claude-memory/bases/` with a description, tags, and chronology.
 
-При старте сессии Claude спрашивает, к какой базе относится работа. Сессия привязывается к базе через wikilinks. В таймлайне можно отфильтровать сессии по базе и увидеть всю историю одного направления.
+At session start, Claude asks which base the work belongs to. The session is linked to the base via wikilinks. In the timeline, you can filter sessions by base to see the full history of one direction.
 
-### Память
+### Memory
 
-Записи памяти — факты, которые важно помнить между сессиями: кто пользователь, какие решения приняты, какой фидбэк дан. Хранятся в `claude-memory/memories/`, индексируются в `MEMORY.md`.
+Memory records are facts important to remember between sessions: who the user is, what decisions were made, what feedback was given. Stored in `claude-memory/memories/`, indexed in `MEMORY.md`.
 
-### Потоки
+### Streams
 
-Потоки отслеживают единицы работы: фазы проекта, быстрые задачи, рабочие направления. Хранятся в `claude-memory/streams/` с прогрессом и решениями.
+Streams track units of work: project phases, quick tasks, work directions. Stored in `claude-memory/streams/` with progress and decisions.
 
-### Синхронизация
+### Project-wide File Tracking
 
-Когда вы редактируете файлы в Obsidian, плагин записывает путь изменённого файла в `claude-memory/.changed`. При следующем запуске Claude читает этот файл и подхватывает ваши правки.
+The plugin tracks ALL file changes across the entire project (not just `claude-memory/`). Every modified file is:
+- Shown in the sidebar log with NEW/UPD/DEL labels
+- Auto-appended to the active session with `[[wikilinks]]`
+- Connected in the Obsidian graph to the session that touched it
 
-### Граф
+### Sync
 
-Все связи между файлами через `[[wikilinks]]`. Obsidian автоматически строит граф: сессии связаны с базами, базы с сессиями, память ссылается на решения.
+When you edit files in Obsidian, the plugin writes the changed file path to `claude-memory/.changed`. On the next Claude start, it reads this file and picks up your edits.
 
-## Что видно в Obsidian
+### Graph
 
-### Sidebar (иконка мозга в верхней панели)
+All connections between files use `[[wikilinks]]`. Obsidian automatically builds the graph: sessions linked to bases, bases to sessions, project files to sessions, memory referencing decisions.
 
-Список всех элементов claude-memory:
-- **Базы** — направления работы с тегами
-- **Потоки** — активные, приостановленные, завершённые
-- **Сессии** — последние 10
-- **Память** — все записи с типами
-- **Лог** — изменения файлов в реальном времени (NEW/UPD/DEL/REN с таймстампами)
+## What You See in Obsidian
 
-Фильтры: Все / Активные / Архив.
+### Sidebar (brain icon in the top panel)
 
-### Dashboard (иконка мозга в нижней панели)
+List of all claude-memory elements:
+- **Bases** — work directions with tags
+- **Streams** — active, paused, completed
+- **Sessions** — last 10
+- **Memory** — all records with types
+- **Log** — real-time file changes across the entire project (NEW/UPD/DEL/REN with timestamps)
 
-Обзорная панель со статистикой и карточками:
-- Количество баз, сессий, памяти, потоков
-- Колонки баз, потоков, сессий, памяти с кликабельными карточками
+Filters: All / Active / Archived.
+
+### Dashboard (brain icon in the bottom panel)
+
+Overview panel with statistics and cards:
+- Count of bases, sessions, memories, streams
+- Columns of bases, streams, sessions, memories with clickable cards
 
 ### Timeline
 
-Хронология по базам и потокам. Выбираете базу или поток — видите все связанные сессии в хронологическом порядке.
+Chronology by bases and streams. Select a base or stream — see all related sessions in chronological order.
 
-### Лог изменений
+### Change Log
 
-Внизу sidebar — живой лог всех изменений в `claude-memory/`. Показывает время, тип действия и имя файла. Клик открывает файл.
+At the bottom of the sidebar — a live log of all project file changes. Shows time, action type, and file name. Click opens the file.
 
-## Надёжность записи сессий
+## Session Recording Reliability
 
-Три уровня гарантируют, что сессии всегда записываются:
+Three levels guarantee sessions are always recorded:
 
-| Уровень | Механизм | Ловит |
-|---------|----------|-------|
-| CLAUDE.md | Инструкции загружаются каждую сессию | Claude забыл скилл |
-| Хуки | SessionStart + Stop в `.claude/settings.json` | Claude игнорирует CLAUDE.md |
-| Плагин | SessionGuardian создаёт stubs, закрывает stale сессии | Консоль закрыта внезапно |
+| Level | Mechanism | Catches |
+|-------|-----------|---------|
+| CLAUDE.md | Instructions loaded every session | Claude forgot the skill |
+| Hooks | SessionStart + PostToolUse + Stop in `.claude/settings.json` | Claude ignores CLAUDE.md |
+| Plugin | SessionGuardian creates stubs, closes stale sessions | Console closed unexpectedly |
 
-## Команды в Obsidian (Ctrl+P)
+## Obsidian Commands (Ctrl+P)
 
-| Команда | Описание |
-|---------|----------|
-| Claude Memory: Create Memory | Создать запись памяти |
-| Claude Memory: Create Stream | Создать поток (фаза/задача/направление) |
-| Claude Memory: Create Base | Создать новую базу |
-| Claude Memory: Link Streams | Связать два потока |
-| Claude Memory: Archive Stream | Пометить поток как завершённый |
-| Claude Memory: Set Context | Приоритезировать файл для агента |
+| Command | Description |
+|---------|-------------|
+| Claude Memory: Create Memory | Create a memory record |
+| Claude Memory: Create Stream | Create a stream (phase/task/direction) |
+| Claude Memory: Create Base | Create a new base |
+| Claude Memory: Link Streams | Link two streams |
+| Claude Memory: Archive Stream | Mark a stream as completed |
+| Claude Memory: Set Context | Prioritize a file for the agent |
 
-## Команды в Claude Code
+## Claude Code Commands
 
 ### /obs-mem init
 
-Инициализация obsidian-memory в текущем проекте:
-- Создаёт структуру `claude-memory/` с директориями
-- Мигрирует существующую память из стандартной системы Claude
-- Настраивает `.obsidian/` для работы как vault
-- Добавляет инструкции в CLAUDE.md
-- Настраивает хуки SessionStart и Stop
+Initialize obsidian-memory in the current project:
+- Asks language preference (English / Russian)
+- Creates `claude-memory/` directory structure
+- Asks about project and creates initial bases
+- Migrates existing memory from Claude's standard system
+- Sets up `.obsidian/` as a vault
+- Adds instructions to CLAUDE.md
+- Configures SessionStart, PostToolUse, and Stop hooks
 
 ### /obs-mem base
 
-Показать текущие базы сессии и список всех доступных баз.
+Show current session bases and list all available bases.
 
-### /obs-mem base {Название}
+### /obs-mem base {Name}
 
-Добавить базу к текущей сессии. Если база не найдена — предложит создать.
+Add a base to the current session. If not found — offers to create one.
 
 ### /obs-mem base new
 
-Создать новую базу: название, описание, пути, теги.
+Create a new base: name, description, paths, tags.
 
-### /obs-mem base remove {Название}
+### /obs-mem base remove {Name}
 
-Убрать базу из текущей сессии (файл базы не удаляется).
+Remove a base from the current session (base file is not deleted).
 
 ### /obs-mem refresh
 
-Перечитать все данные claude-memory и обновить контекст.
+Re-read all claude-memory data and update context.
 
 ### /obs-mem update
 
-Обновить obsidian-memory до последней версии с GitHub. Скачивает файлы скилла и плагина, показывает changelog.
+Update obsidian-memory to the latest version from GitHub. Downloads skill and plugin files, shows changelog.
 
-Если доступно обновление, подсказка появляется в статус-линии Claude Code:
+If an update is available, a hint appears in the Claude Code status line:
 ```
 obsidian-memory 0.3.0 available (current: 0.2.0) → /obs-mem update
 ```
 
-## Структура файлов
+## File Structure
 
 ```
 claude-memory/
-├── MEMORY.md           — индекс памяти
-├── memories/           — записи памяти (user, feedback, project, reference)
-├── sessions/           — файлы сессий
-├── streams/            — потоки работы (фазы, задачи)
-├── bases/              — базы (направления работы)
-├── graph/              — автогенерируемые перекрёстные ссылки
-├── assets/             — изображения
-└── .changed            — сигнальный файл для синхронизации
+├── MEMORY.md           — memory index
+├── .lang               — language preference (en/ru)
+├── memories/           — memory records (user, feedback, project, reference)
+├── sessions/           — session files
+├── streams/            — work streams (phases, tasks)
+├── bases/              — bases (work directions)
+├── graph/              — auto-generated cross-references
+├── assets/             — images
+└── .changed            — signal file for sync
 ```
 
-## Установка
+## Installation
 
-### Автоматическая
+### Automatic
 
 ```bash
 claude /install-plugin 368digital/obsidian-memory
 ```
 
-### Ручная
+### Manual
 
-**Скилл:**
+**Skill:**
 ```bash
 git clone https://github.com/368digital/obsidian-memory.git
 cp -r obsidian-memory/skills/obsidian-memory ~/.claude/skills/obsidian-memory-skill
 ```
 
-**Плагин:**
+**Plugin:**
 ```bash
 cd obsidian-memory/obsidian-claude-memory
 npm install
@@ -167,13 +177,13 @@ mkdir -p /path/to/project/.obsidian/plugins/obsidian-claude-memory
 cp main.js manifest.json styles.css /path/to/project/.obsidian/plugins/obsidian-claude-memory/
 ```
 
-В Obsidian: Settings → Community plugins → включить "Claude Memory".
+In Obsidian: Settings → Community plugins → enable "Claude Memory".
 
-### Активация
+### Activation
 
-В любом проекте: `/obs-mem init` в Claude Code. Открыть папку проекта в Obsidian.
+In any project: `/obs-mem init` in Claude Code. Open the project folder in Obsidian.
 
-## Разработка
+## Development
 
 ```bash
 cd obsidian-claude-memory
@@ -185,5 +195,3 @@ npm run build  # production build
 ## License
 
 MIT
-
-test
