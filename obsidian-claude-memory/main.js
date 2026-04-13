@@ -22,7 +22,7 @@ __export(main_exports, {
   default: () => ClaudeMemoryPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/views/DashboardView.ts
 var import_obsidian = require("obsidian");
@@ -32,6 +32,7 @@ var CLAUDE_MEMORY_DIR = "claude-memory";
 var MEMORIES_DIR = "memories";
 var SESSIONS_DIR = "sessions";
 var STREAMS_DIR = "streams";
+var BASES_DIR = "bases";
 var CHANGED_FILE = ".changed";
 var MEMORY_INDEX = "MEMORY.md";
 
@@ -93,6 +94,7 @@ function getFileCategory(path) {
   if (path.includes(`${MEMORIES_DIR}/`)) return "memory";
   if (path.includes(`${SESSIONS_DIR}/`)) return "session";
   if (path.includes(`${STREAMS_DIR}/`)) return "stream";
+  if (path.includes(`${BASES_DIR}/`)) return "base";
   if (path.includes("graph/")) return "graph";
   return "unknown";
 }
@@ -117,6 +119,8 @@ function parseSessionFile(path, content) {
     date: meta.date || "",
     duration: meta.duration || "",
     streams: meta.streams || [],
+    bases: meta.bases || [],
+    continues: meta.continues || "",
     status: meta.status || "completed",
     content: body,
     wikilinks: extractWikilinks(content)
@@ -138,10 +142,25 @@ function parseStreamFile(path, content) {
     wikilinks: extractWikilinks(content)
   };
 }
+function parseBaseFile(path, content) {
+  var _a;
+  const { meta, body } = parseFrontmatter(content);
+  return {
+    path,
+    name: meta.name || ((_a = path.split("/").pop()) == null ? void 0 : _a.replace(".md", "")) || "",
+    description: meta.description || "",
+    paths: meta.paths || [],
+    tags: meta.tags || [],
+    created: meta.created || "",
+    content: body,
+    wikilinks: extractWikilinks(content)
+  };
+}
 async function loadMemoryIndex(vault) {
   const memories = [];
   const sessions = [];
   const streams = [];
+  const bases = [];
   const files = vault.getMarkdownFiles().filter((f) => f.path.startsWith(CLAUDE_MEMORY_DIR + "/"));
   for (const file of files) {
     const content = await vault.cachedRead(file);
@@ -156,10 +175,13 @@ async function loadMemoryIndex(vault) {
       case "stream":
         streams.push(parseStreamFile(file.path, content));
         break;
+      case "base":
+        bases.push(parseBaseFile(file.path, content));
+        break;
     }
   }
   sessions.sort((a, b) => b.date.localeCompare(a.date));
-  return { memories, sessions, streams };
+  return { memories, sessions, streams, bases };
 }
 
 // src/views/DashboardView.ts
@@ -185,14 +207,21 @@ var DashboardView = class extends import_obsidian.ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("claude-memory-dashboard");
-    const { memories, sessions, streams } = await loadMemoryIndex(this.app.vault);
+    const { memories, sessions, streams, bases } = await loadMemoryIndex(this.app.vault);
     const header = container.createDiv({ cls: "cm-dashboard-header" });
     header.createEl("h2", { text: "Claude Memory" });
     const stats = header.createDiv({ cls: "cm-stats" });
-    stats.createSpan({ text: `${streams.length} \u043F\u043E\u0442\u043E\u043A\u043E\u0432` });
+    stats.createSpan({ text: `${bases.length} \u0431\u0430\u0437` });
+    stats.createSpan({ text: ` \xB7 ${streams.length} \u043F\u043E\u0442\u043E\u043A\u043E\u0432` });
     stats.createSpan({ text: ` \xB7 ${sessions.length} \u0441\u0435\u0441\u0441\u0438\u0439` });
     stats.createSpan({ text: ` \xB7 ${memories.length} \u0437\u0430\u043F\u0438\u0441\u0435\u0439` });
     const grid = container.createDiv({ cls: "cm-dashboard-grid" });
+    if (bases.length > 0) {
+      grid.style.gridTemplateColumns = "1fr 1fr 1fr 1fr";
+    }
+    if (bases.length > 0) {
+      this.renderBasesColumn(grid, bases, sessions);
+    }
     this.renderStreamsColumn(grid, streams);
     this.renderSessionsColumn(grid, sessions.slice(0, 10));
     this.renderMemoriesColumn(grid, memories);
@@ -243,6 +272,39 @@ var DashboardView = class extends import_obsidian.ItemView {
       col.createDiv({ cls: "cm-empty", text: "\u041D\u0435\u0442 \u0441\u0435\u0441\u0441\u0438\u0439" });
     }
   }
+  renderBasesColumn(parent, bases, sessions) {
+    const col = parent.createDiv({ cls: "cm-column" });
+    col.createEl("h3", { text: "\u0411\u0430\u0437\u044B" });
+    for (const base of bases) {
+      const card = col.createDiv({ cls: "cm-item cm-base" });
+      card.createSpan({ cls: "cm-item-name", text: base.name });
+      card.createSpan({ cls: "cm-item-desc", text: base.description });
+      const baseName = base.name;
+      const baseSessions = sessions.filter(
+        (s) => s.bases.some((b) => b.includes(baseName))
+      );
+      if (baseSessions.length > 0) {
+        const info = card.createDiv({ cls: "cm-tags" });
+        info.createSpan({ cls: "cm-tag", text: `${baseSessions.length} \u0441\u0435\u0441\u0441\u0438\u0439` });
+        const lastSession = baseSessions[0];
+        if (lastSession) {
+          info.createSpan({ cls: "cm-tag", text: lastSession.date.slice(0, 10) });
+        }
+      }
+      if (base.tags.length > 0) {
+        const tags = card.createDiv({ cls: "cm-tags" });
+        for (const tag of base.tags) {
+          tags.createSpan({ cls: "cm-tag", text: tag });
+        }
+      }
+      card.addEventListener("click", () => {
+        const file = this.app.vault.getAbstractFileByPath(base.path);
+        if (file) {
+          this.app.workspace.getLeaf("tab").openFile(file);
+        }
+      });
+    }
+  }
   renderMemoriesColumn(parent, memories) {
     const col = parent.createDiv({ cls: "cm-column" });
     col.createEl("h3", { text: "\u041F\u0430\u043C\u044F\u0442\u044C" });
@@ -284,6 +346,7 @@ var TimelineView = class extends import_obsidian2.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.currentStream = null;
+    this.currentBase = null;
     this.plugin = plugin;
   }
   getViewType() {
@@ -306,9 +369,38 @@ var TimelineView = class extends import_obsidian2.ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("claude-memory-timeline");
-    const { sessions, streams } = await loadMemoryIndex(this.app.vault);
-    if (!this.currentStream) {
-      this.renderStreamPicker(container, streams);
+    const { sessions, streams, bases } = await loadMemoryIndex(this.app.vault);
+    if (!this.currentStream && !this.currentBase) {
+      this.renderPicker(container, streams, bases);
+      return;
+    }
+    if (this.currentBase) {
+      const base = bases.find((b) => b.name === this.currentBase);
+      if (!base) {
+        container.createEl("p", { text: `\u0411\u0430\u0437\u0430 "${this.currentBase}" \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430` });
+        return;
+      }
+      const header2 = container.createDiv({ cls: "cm-timeline-header" });
+      header2.createEl("h2", { text: base.name });
+      const backBtn2 = header2.createEl("button", { cls: "cm-filter-btn", text: "\u2190 \u041D\u0430\u0437\u0430\u0434" });
+      backBtn2.addEventListener("click", () => {
+        this.currentBase = null;
+        this.render();
+      });
+      if (base.description) {
+        container.createDiv({ cls: "cm-date", text: base.description });
+      }
+      const baseSessions = sessions.filter(
+        (s) => s.bases.some((b) => b.includes(base.name))
+      );
+      const timeline2 = container.createDiv({ cls: "cm-timeline" });
+      timeline2.createEl("h3", { text: "\u0421\u0435\u0441\u0441\u0438\u0438" });
+      for (const session of baseSessions) {
+        this.renderTimelineEntry(timeline2, session);
+      }
+      if (baseSessions.length === 0) {
+        timeline2.createDiv({ cls: "cm-empty", text: "\u041D\u0435\u0442 \u0441\u0435\u0441\u0441\u0438\u0439 \u0434\u043B\u044F \u044D\u0442\u043E\u0439 \u0431\u0430\u0437\u044B" });
+      }
       return;
     }
     const stream = streams.find((s) => s.name === this.currentStream);
@@ -320,6 +412,11 @@ var TimelineView = class extends import_obsidian2.ItemView {
     header.createEl("h2", { text: stream.name });
     const badge = header.createSpan({ cls: `cm-badge cm-status-${stream.status}` });
     badge.setText(stream.status);
+    const backBtn = header.createEl("button", { cls: "cm-filter-btn", text: "\u2190 \u041D\u0430\u0437\u0430\u0434" });
+    backBtn.addEventListener("click", () => {
+      this.currentStream = null;
+      this.render();
+    });
     if (stream.started) {
       header.createDiv({ cls: "cm-date", text: `${stream.started}${stream.completed ? " \u2192 " + stream.completed : " \u2192 ..."}` });
     }
@@ -338,24 +435,27 @@ var TimelineView = class extends import_obsidian2.ItemView {
     const timeline = container.createDiv({ cls: "cm-timeline" });
     timeline.createEl("h3", { text: "\u0421\u0435\u0441\u0441\u0438\u0438" });
     for (const session of streamSessions) {
-      const entry = timeline.createDiv({ cls: "cm-timeline-entry" });
-      const dot = entry.createDiv({ cls: "cm-timeline-dot" });
-      const body = entry.createDiv({ cls: "cm-timeline-body" });
-      body.createDiv({ cls: "cm-date", text: session.date.slice(0, 16).replace("T", " ") });
-      body.createDiv({ cls: "cm-item-name", text: session.name });
-      entry.addEventListener("click", () => {
-        const file = this.app.vault.getAbstractFileByPath(session.path);
-        if (file) {
-          this.app.workspace.getLeaf("tab").openFile(file);
-        }
-      });
+      this.renderTimelineEntry(timeline, session);
     }
     if (streamSessions.length === 0) {
       timeline.createDiv({ cls: "cm-empty", text: "\u041D\u0435\u0442 \u0441\u0435\u0441\u0441\u0438\u0439 \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u043F\u043E\u0442\u043E\u043A\u0430" });
     }
   }
-  renderStreamPicker(container, streams) {
-    container.createEl("h2", { text: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043F\u043E\u0442\u043E\u043A" });
+  renderPicker(container, streams, bases) {
+    if (bases.length > 0) {
+      container.createEl("h2", { text: "\u0411\u0430\u0437\u044B" });
+      const baseList = container.createDiv({ cls: "cm-stream-picker" });
+      for (const base of bases) {
+        const item = baseList.createDiv({ cls: "cm-item cm-base" });
+        item.createSpan({ cls: "cm-badge cm-base-badge", text: base.tags[0] || "\u0431\u0430\u0437\u0430" });
+        item.createSpan({ cls: "cm-item-name", text: base.name });
+        item.addEventListener("click", () => {
+          this.currentBase = base.name;
+          this.render();
+        });
+      }
+    }
+    container.createEl("h2", { text: "\u041F\u043E\u0442\u043E\u043A\u0438" });
     const list = container.createDiv({ cls: "cm-stream-picker" });
     for (const stream of streams) {
       const item = list.createDiv({ cls: `cm-item cm-stream cm-status-${stream.status}` });
@@ -366,6 +466,25 @@ var TimelineView = class extends import_obsidian2.ItemView {
         this.render();
       });
     }
+  }
+  renderTimelineEntry(timeline, session) {
+    const entry = timeline.createDiv({ cls: "cm-timeline-entry" });
+    entry.createDiv({ cls: "cm-timeline-dot" });
+    const body = entry.createDiv({ cls: "cm-timeline-body" });
+    body.createDiv({ cls: "cm-date", text: session.date.slice(0, 16).replace("T", " ") });
+    body.createDiv({ cls: "cm-item-name", text: session.name });
+    if (session.bases.length > 0) {
+      const tags = body.createDiv({ cls: "cm-tags" });
+      for (const b of session.bases) {
+        tags.createSpan({ cls: "cm-tag", text: b.replace(/\[\[|\]\]/g, "") });
+      }
+    }
+    entry.addEventListener("click", () => {
+      const file = this.app.vault.getAbstractFileByPath(session.path);
+      if (file) {
+        this.app.workspace.getLeaf("tab").openFile(file);
+      }
+    });
   }
 };
 
@@ -408,7 +527,7 @@ var SidebarView = class extends import_obsidian3.ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("claude-memory-sidebar");
-    const { memories, sessions, streams } = await loadMemoryIndex(this.app.vault);
+    const { memories, sessions, streams, bases } = await loadMemoryIndex(this.app.vault);
     const filterBar = container.createDiv({ cls: "cm-filter-bar" });
     for (const f of ["all", "active", "archived"]) {
       const btn = filterBar.createEl("button", {
@@ -421,12 +540,20 @@ var SidebarView = class extends import_obsidian3.ItemView {
       });
     }
     const counts = container.createDiv({ cls: "cm-sidebar-counts" });
-    counts.setText(`${memories.length} \u043F\u0430\u043C\u044F\u0442\u0438 \xB7 ${sessions.length} \u0441\u0435\u0441\u0441\u0438\u0439 \xB7 ${streams.length} \u043F\u043E\u0442\u043E\u043A\u043E\u0432`);
+    counts.setText(`${bases.length} \u0431\u0430\u0437 \xB7 ${memories.length} \u043F\u0430\u043C\u044F\u0442\u0438 \xB7 ${sessions.length} \u0441\u0435\u0441\u0441\u0438\u0439 \xB7 ${streams.length} \u043F\u043E\u0442\u043E\u043A\u043E\u0432`);
     const filteredStreams = streams.filter((s) => {
       if (this.filter === "active") return s.status === "active" || s.status === "paused";
       if (this.filter === "archived") return s.status === "complete";
       return true;
     });
+    if (bases.length > 0) {
+      this.renderSection(container, "\u0411\u0430\u0437\u044B", bases.map((b) => ({
+        name: b.name,
+        path: b.path,
+        badge: `${b.tags[0] || ""}`,
+        badgeClass: "cm-base-badge"
+      })));
+    }
     if (filteredStreams.length > 0) {
       this.renderSection(container, "\u041F\u043E\u0442\u043E\u043A\u0438", filteredStreams.map((s) => ({
         name: s.name,
@@ -488,6 +615,11 @@ function registerCommands(plugin) {
     id: "link-streams",
     name: "Link Streams",
     callback: () => new LinkStreamsModal(plugin.app, plugin).open()
+  });
+  plugin.addCommand({
+    id: "create-base",
+    name: "Create Base",
+    callback: () => new CreateBaseModal(plugin.app, plugin).open()
   });
   plugin.addCommand({
     id: "archive-stream",
@@ -637,6 +769,71 @@ related: []
     this.contentEl.empty();
   }
 };
+var CreateBaseModal = class extends import_obsidian4.Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl("h2", { text: "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0431\u0430\u0437\u0443" });
+    let name = "";
+    let description = "";
+    let paths = "";
+    let tags = "";
+    new import_obsidian4.Setting(contentEl).setName("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435").addText(
+      (t) => t.setPlaceholder("\u041F\u043B\u0430\u0433\u0438\u043D Obsidian").onChange((v) => name = v)
+    );
+    new import_obsidian4.Setting(contentEl).setName("\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435").addTextArea(
+      (t) => t.setPlaceholder("\u0427\u0442\u043E \u044D\u0442\u043E \u0437\u0430 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0440\u0430\u0431\u043E\u0442\u044B").onChange((v) => description = v)
+    );
+    new import_obsidian4.Setting(contentEl).setName("\u041F\u0443\u0442\u0438").setDesc("\u0427\u0435\u0440\u0435\u0437 \u0437\u0430\u043F\u044F\u0442\u0443\u044E").addText(
+      (t) => t.setPlaceholder("src/sync/, src/main.ts").onChange((v) => paths = v)
+    );
+    new import_obsidian4.Setting(contentEl).setName("\u0422\u0435\u0433\u0438").setDesc("\u0427\u0435\u0440\u0435\u0437 \u0437\u0430\u043F\u044F\u0442\u0443\u044E").addText(
+      (t) => t.setPlaceholder("obsidian, plugin").onChange((v) => tags = v)
+    );
+    new import_obsidian4.Setting(contentEl).addButton(
+      (btn) => btn.setButtonText("\u0421\u043E\u0437\u0434\u0430\u0442\u044C").setCta().onClick(async () => {
+        if (!name) {
+          new import_obsidian4.Notice("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435");
+          return;
+        }
+        const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+        const pathsList = paths ? paths.split(",").map((p) => p.trim()).filter(Boolean) : [];
+        const tagsList = tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
+        const pathsYaml = pathsList.length > 0 ? `paths:
+${pathsList.map((p) => `  - ${p}`).join("\n")}` : "paths: []";
+        const tagsYaml = tagsList.length > 0 ? `tags: [${tagsList.join(", ")}]` : "tags: []";
+        const content = [
+          "---",
+          `name: ${name}`,
+          `description: ${description}`,
+          pathsYaml,
+          tagsYaml,
+          `created: ${today}`,
+          "---",
+          "",
+          "## \u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435",
+          description,
+          "",
+          "## \u041A\u043B\u044E\u0447\u0435\u0432\u044B\u0435 \u043A\u043E\u043C\u043F\u043E\u043D\u0435\u043D\u0442\u044B",
+          "",
+          "",
+          "## \u0425\u0440\u043E\u043D\u043E\u043B\u043E\u0433\u0438\u044F",
+          ""
+        ].join("\n");
+        const filePath = `${CLAUDE_MEMORY_DIR}/${BASES_DIR}/${name}.md`;
+        await this.app.vault.create(filePath, content);
+        new import_obsidian4.Notice(`\u0421\u043E\u0437\u0434\u0430\u043D\u0430 \u0431\u0430\u0437\u0430: ${name}`);
+        this.close();
+      })
+    );
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 var LinkStreamsModal = class extends import_obsidian4.Modal {
   constructor(app, plugin) {
     super(app);
@@ -729,61 +926,96 @@ async function setContextPriority(plugin) {
 }
 
 // src/sync/changed-writer.ts
-var import_obsidian5 = require("obsidian");
+var POLL_INTERVAL = 2e3;
 var ChangedWriter = class {
+  // path -> mtime
   constructor(plugin) {
-    this.eventRef = null;
-    this.pendingPaths = /* @__PURE__ */ new Set();
-    this.writeTimeout = null;
+    this.pollTimer = null;
+    this.knownFiles = /* @__PURE__ */ new Map();
     this.plugin = plugin;
   }
-  start() {
-    this.eventRef = this.plugin.app.vault.on("modify", (file) => {
-      if (!(file instanceof import_obsidian5.TFile)) return;
-      if (!file.path.startsWith(CLAUDE_MEMORY_DIR + "/")) return;
-      if (file.path.endsWith(CHANGED_FILE)) return;
-      this.pendingPaths.add(file.path);
-      this.scheduleWrite();
-    });
-    this.plugin.registerEvent(this.eventRef);
+  async start() {
+    await this.snapshotCurrentState(CLAUDE_MEMORY_DIR);
+    this.pollTimer = setInterval(() => this.pollForChanges(), POLL_INTERVAL);
   }
   stop() {
-    if (this.writeTimeout) {
-      clearTimeout(this.writeTimeout);
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
     }
-    this.pendingPaths.clear();
   }
-  scheduleWrite() {
-    if (this.writeTimeout) {
-      clearTimeout(this.writeTimeout);
+  async snapshotCurrentState(dir) {
+    const adapter = this.plugin.app.vault.adapter;
+    const exists = await adapter.exists(dir);
+    if (!exists) return;
+    const listing = await adapter.list(dir);
+    for (const filePath of listing.files) {
+      const stat = await adapter.stat(filePath);
+      if (stat) {
+        this.knownFiles.set(filePath, stat.mtime);
+      }
     }
-    this.writeTimeout = setTimeout(() => this.writeChangedFile(), 500);
+    for (const folderPath of listing.folders) {
+      await this.snapshotCurrentState(folderPath);
+    }
   }
-  async writeChangedFile() {
-    if (this.pendingPaths.size === 0) return;
-    const guardian = this.plugin.sessionGuardian;
-    if (guardian) {
-      await guardian.ensureTodaySession();
+  async pollForChanges() {
+    const adapter = this.plugin.app.vault.adapter;
+    const exists = await adapter.exists(CLAUDE_MEMORY_DIR);
+    if (!exists) return;
+    const currentFiles = /* @__PURE__ */ new Map();
+    await this.collectFilesFromAdapter(CLAUDE_MEMORY_DIR, currentFiles);
+    const changedPaths = [];
+    for (const [path, mtime] of currentFiles) {
+      if (path.endsWith(CHANGED_FILE)) continue;
+      const knownMtime = this.knownFiles.get(path);
+      if (knownMtime === void 0 || knownMtime < mtime) {
+        changedPaths.push(path);
+      }
     }
+    if (changedPaths.length > 0) {
+      for (const [path, mtime] of currentFiles) {
+        this.knownFiles.set(path, mtime);
+      }
+      const guardian = this.plugin.sessionGuardian;
+      if (guardian) {
+        await guardian.ensureTodaySession();
+      }
+      await this.writeChangedFile(changedPaths);
+    }
+  }
+  async collectFilesFromAdapter(dir, map) {
+    const adapter = this.plugin.app.vault.adapter;
+    const listing = await adapter.list(dir);
+    for (const filePath of listing.files) {
+      const stat = await adapter.stat(filePath);
+      if (stat) {
+        map.set(filePath, stat.mtime);
+      }
+    }
+    for (const folderPath of listing.folders) {
+      await this.collectFilesFromAdapter(folderPath, map);
+    }
+  }
+  async writeChangedFile(paths) {
     const changedPath = `${CLAUDE_MEMORY_DIR}/${CHANGED_FILE}`;
-    const content = [...this.pendingPaths].join("\n") + "\n";
-    const existing = this.plugin.app.vault.getAbstractFileByPath(changedPath);
-    if (existing && existing instanceof import_obsidian5.TFile) {
-      const current = await this.plugin.app.vault.read(existing);
+    const adapter = this.plugin.app.vault.adapter;
+    const exists = await adapter.exists(changedPath);
+    if (exists) {
+      const current = await adapter.read(changedPath);
       const merged = /* @__PURE__ */ new Set([
         ...current.trim().split("\n").filter(Boolean),
-        ...this.pendingPaths
+        ...paths
       ]);
-      await this.plugin.app.vault.modify(existing, [...merged].join("\n") + "\n");
+      await adapter.write(changedPath, [...merged].join("\n") + "\n");
     } else {
-      await this.plugin.app.vault.create(changedPath, content);
+      await adapter.write(changedPath, paths.join("\n") + "\n");
     }
-    this.pendingPaths.clear();
   }
 };
 
 // src/sync/session-guardian.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var SESSIONS_PATH = `${CLAUDE_MEMORY_DIR}/${SESSIONS_DIR}`;
 var SessionGuardian = class {
   constructor(plugin) {
@@ -798,10 +1030,10 @@ var SessionGuardian = class {
    */
   async closeStaleInProgressSessions() {
     const sessionsFolder = this.plugin.app.vault.getAbstractFileByPath(SESSIONS_PATH);
-    if (!sessionsFolder || !(sessionsFolder instanceof import_obsidian6.TFolder)) return;
+    if (!sessionsFolder || !(sessionsFolder instanceof import_obsidian5.TFolder)) return;
     const today = this.todayPrefix();
     for (const child of sessionsFolder.children) {
-      if (!(child instanceof import_obsidian6.TFile) || !child.name.endsWith(".md")) continue;
+      if (!(child instanceof import_obsidian5.TFile) || !child.name.endsWith(".md")) continue;
       if (child.name.startsWith(today)) continue;
       const content = await this.plugin.app.vault.read(child);
       if (!content.includes("status: in_progress")) continue;
@@ -816,10 +1048,10 @@ var SessionGuardian = class {
    */
   async ensureTodaySession() {
     const sessionsFolder = this.plugin.app.vault.getAbstractFileByPath(SESSIONS_PATH);
-    if (!sessionsFolder || !(sessionsFolder instanceof import_obsidian6.TFolder)) return;
+    if (!sessionsFolder || !(sessionsFolder instanceof import_obsidian5.TFolder)) return;
     const today = this.todayPrefix();
     const hasToday = sessionsFolder.children.some(
-      (f) => f instanceof import_obsidian6.TFile && f.name.startsWith(today)
+      (f) => f instanceof import_obsidian5.TFile && f.name.startsWith(today)
     );
     if (!hasToday) {
       await this.createStubSession(today);
@@ -866,7 +1098,7 @@ var SessionGuardian = class {
 };
 
 // src/main.ts
-var ClaudeMemoryPlugin = class extends import_obsidian7.Plugin {
+var ClaudeMemoryPlugin = class extends import_obsidian6.Plugin {
   constructor() {
     super(...arguments);
     this.changedWriter = null;
@@ -888,11 +1120,18 @@ var ClaudeMemoryPlugin = class extends import_obsidian7.Plugin {
     this.addRibbonIcon("brain", "Claude Memory Dashboard", () => {
       this.activateView(DASHBOARD_VIEW_TYPE);
     });
-    this.activateView(SIDEBAR_VIEW_TYPE, "left");
+    const existingLeaves = this.app.workspace.getLeavesOfType(SIDEBAR_VIEW_TYPE);
+    if (existingLeaves.length === 0) {
+      this.activateView(SIDEBAR_VIEW_TYPE, "left");
+    } else if (existingLeaves.length > 1) {
+      for (let i = 1; i < existingLeaves.length; i++) {
+        existingLeaves[i].detach();
+      }
+    }
     this.sessionGuardian = new SessionGuardian(this);
     await this.sessionGuardian.onload();
     this.changedWriter = new ChangedWriter(this);
-    this.changedWriter.start();
+    await this.changedWriter.start();
   }
   onunload() {
     var _a;

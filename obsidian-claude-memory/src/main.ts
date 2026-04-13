@@ -32,13 +32,20 @@ export default class ClaudeMemoryPlugin extends Plugin {
       return;
     }
 
-    // Add ribbon icon to open dashboard
+    // Ribbon icon to open dashboard
     this.addRibbonIcon('brain', 'Claude Memory Dashboard', () => {
       this.activateView(DASHBOARD_VIEW_TYPE);
     });
 
-    // Set up sidebar
-    this.activateView(SIDEBAR_VIEW_TYPE, 'left');
+    // Ensure exactly one sidebar exists (deduplicate if layout restored extras)
+    const existingLeaves = this.app.workspace.getLeavesOfType(SIDEBAR_VIEW_TYPE);
+    if (existingLeaves.length === 0) {
+      this.activateView(SIDEBAR_VIEW_TYPE, 'left');
+    } else if (existingLeaves.length > 1) {
+      for (let i = 1; i < existingLeaves.length; i++) {
+        existingLeaves[i].detach();
+      }
+    }
 
     // Session guardian: close stale sessions, create stubs
     this.sessionGuardian = new SessionGuardian(this);
@@ -46,7 +53,7 @@ export default class ClaudeMemoryPlugin extends Plugin {
 
     // Start .changed writer (with session guardian integration)
     this.changedWriter = new ChangedWriter(this);
-    this.changedWriter.start();
+    await this.changedWriter.start();
   }
 
   onunload() {
