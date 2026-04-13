@@ -3,7 +3,7 @@
   "description": "Persistent project memory via Obsidian vault for Claude Code",
   "owner": {
     "name": "368digital",
-    "email": "dev@368.digital"
+    "email": "info@368digital.com"
   },
   "plugins": [
     {
@@ -13,7 +13,7 @@
       "source": "./",
       "author": {
         "name": "368digital",
-        "email": "dev@368.digital"
+        "email": "info@368digital.com"
       }
     }
   ]
