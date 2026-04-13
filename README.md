@@ -1,8 +1,35 @@
 # obsidian-memory
 
+> This project is entirely built with [Claude Code](https://claude.ai/claude-code) — from architecture and plugin code to skill instructions and documentation.
+
 Project memory system for Claude Code with Obsidian visualization.
 
 Claude Code keeps detailed records of every work session, decisions, and work directions — Obsidian displays it all as a connected graph with navigation, dashboard, and timeline.
+
+## Quick Start
+
+**Prerequisites:** [Claude Code](https://claude.ai/claude-code) + [Obsidian](https://obsidian.md) installed.
+
+1. **Install the skill** (once, globally):
+   ```bash
+   git clone https://github.com/368digital/obsidian-memory.git
+   cp -r obsidian-memory/skills/obsidian-memory ~/.claude/skills/obsidian-memory-skill
+   ```
+
+2. **Initialize in any project** (run in Claude Code):
+   ```
+   /obs-mem init
+   ```
+   This will:
+   - Ask your preferred language (English / Russian)
+   - Create `claude-memory/` directory structure
+   - Download and install the Obsidian plugin automatically
+   - Ask about your project and create work bases
+   - Configure CLAUDE.md and session hooks
+
+3. **Open the project folder in Obsidian** — the vault is ready, plugin is active.
+
+That's it. No manual plugin installation, no vault setup. Everything is handled by `/obs-mem init`.
 
 ## Components
 
@@ -154,34 +181,14 @@ claude-memory/
 
 ## Installation
 
-### Automatic
+See [Quick Start](#quick-start) above. The plugin is installed automatically by `/obs-mem init` — no manual setup needed.
 
+For manual plugin builds (development):
 ```bash
-claude /install-plugin 368digital/obsidian-memory
-```
-
-### Manual
-
-**Skill:**
-```bash
-git clone https://github.com/368digital/obsidian-memory.git
-cp -r obsidian-memory/skills/obsidian-memory ~/.claude/skills/obsidian-memory-skill
-```
-
-**Plugin:**
-```bash
-cd obsidian-memory/obsidian-claude-memory
-npm install
-npm run build
-mkdir -p /path/to/project/.obsidian/plugins/obsidian-claude-memory
+cd obsidian-claude-memory
+npm install && npm run build
 cp main.js manifest.json styles.css /path/to/project/.obsidian/plugins/obsidian-claude-memory/
 ```
-
-In Obsidian: Settings → Community plugins → enable "Claude Memory".
-
-### Activation
-
-In any project: `/obs-mem init` in Claude Code. Open the project folder in Obsidian.
 
 ## Development
 
