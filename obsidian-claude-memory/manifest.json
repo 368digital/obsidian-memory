@@ -1,9 +1,9 @@
 {
   "id": "obsidian-claude-memory",
   "name": "Claude Memory",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "minAppVersion": "1.4.0",
-  "description": "Visualize and manage Claude Code project memory — sessions, streams, memories with graph connections",
+  "description": "Full project memory for Claude Code — tracks all file changes, auto-links sessions to project files via wikilinks, sidebar log, dashboard, timeline",
   "author": "trishevae",
   "isDesktopOnly": false
 }

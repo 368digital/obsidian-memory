@@ -17,6 +17,18 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TOOL_INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$TOOL_INPUT\" | grep -q \"claude-memory/\"; then echo \"{}\"; else TODAY=$(date +%Y-%m-%d); SESSION=$(ls claude-memory/sessions/ 2>/dev/null | grep \"^${TODAY}\" | sort -r | head -1); if [ -n \"$SESSION\" ]; then echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"[obsidian-memory] Ты только что изменил файл. Добавь его в секцию Файлы затронуты текущей сессии: claude-memory/sessions/${SESSION}\\\"}}\"; else echo \"{}\"; fi; fi; else echo \"{}\"; fi'",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

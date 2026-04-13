@@ -1,7 +1,7 @@
 {
   "name": "obsidian-claude-memory",
-  "version": "0.1.0",
-  "description": "Obsidian plugin for Claude Code project memory visualization and management",
+  "version": "0.3.0",
+  "description": "Obsidian plugin for Claude Code — full project memory with file tracking, wikilinks, sidebar log, dashboard, timeline",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

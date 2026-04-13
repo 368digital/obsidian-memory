@@ -8,7 +8,7 @@ import { SessionGuardian } from './sync/session-guardian';
 import { CLAUDE_MEMORY_DIR } from './types';
 
 export default class ClaudeMemoryPlugin extends Plugin {
-  private changedWriter: ChangedWriter | null = null;
+  changedWriter: ChangedWriter | null = null;
   sessionGuardian: SessionGuardian | null = null;
 
   async onload() {

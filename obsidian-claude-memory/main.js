@@ -495,6 +495,9 @@ var SidebarView = class extends import_obsidian3.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.filter = "all";
+    this.logEntries = [];
+    this.logEl = null;
+    this.maxLogEntries = 50;
     this.plugin = plugin;
   }
   getViewType() {
@@ -508,20 +511,68 @@ var SidebarView = class extends import_obsidian3.ItemView {
   }
   async onOpen() {
     await this.render();
-    this.registerEvent(
-      this.app.vault.on("modify", (file) => {
-        if (file.path.startsWith(CLAUDE_MEMORY_DIR)) {
-          this.render();
+    const IGNORED_PREFIXES = [".obsidian/", "node_modules/", ".git/"];
+    const track = (action, file) => {
+      if (IGNORED_PREFIXES.some((p) => file.path.startsWith(p))) return;
+      if (file.path.endsWith("/.changed") || file.path === "claude-memory/.changed") return;
+      this.addLogEntry(action, file.path);
+    };
+    this.registerEvent(this.app.vault.on("modify", (f) => {
+      track("modify", f);
+      this.render();
+    }));
+    this.registerEvent(this.app.vault.on("create", (f) => {
+      track("create", f);
+      this.render();
+    }));
+    this.registerEvent(this.app.vault.on("delete", (f) => {
+      track("delete", f);
+      this.render();
+    }));
+    this.registerEvent(this.app.vault.on("rename", (f) => {
+      track("rename", f);
+      this.render();
+    }));
+    const trySubscribe = () => {
+      const cw = this.plugin.changedWriter;
+      if (!cw) return false;
+      cw.onExternalChange((events) => {
+        for (const event of events) {
+          if (event.path.endsWith(".changed")) continue;
+          this.addLogEntry(event.action, event.path);
         }
-      })
-    );
-    this.registerEvent(
-      this.app.vault.on("create", (file) => {
-        if (file.path.startsWith(CLAUDE_MEMORY_DIR)) {
-          this.render();
+        this.render();
+      });
+      return true;
+    };
+    if (!trySubscribe()) {
+      const retryTimer = window.setInterval(() => {
+        if (trySubscribe()) {
+          window.clearInterval(retryTimer);
         }
-      })
+      }, 1e3);
+      this.register(() => window.clearInterval(retryTimer));
+    }
+  }
+  addLogEntry(action, path) {
+    const now = /* @__PURE__ */ new Date();
+    const nowMs = now.getTime();
+    const duplicate = this.logEntries.find(
+      (e) => e.path === path && nowMs - this.parseLogTime(e.time) < 5e3
     );
+    if (duplicate) return;
+    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+    const file = path.startsWith(CLAUDE_MEMORY_DIR + "/") ? path.replace(CLAUDE_MEMORY_DIR + "/", "").replace(".md", "") : path;
+    this.logEntries.unshift({ time, action, file, path });
+    if (this.logEntries.length > this.maxLogEntries) {
+      this.logEntries = this.logEntries.slice(0, this.maxLogEntries);
+    }
+  }
+  parseLogTime(time) {
+    const [h, m, s] = time.split(":").map(Number);
+    const d = /* @__PURE__ */ new Date();
+    d.setHours(h, m, s, 0);
+    return d.getTime();
   }
   async render() {
     const container = this.containerEl.children[1];
@@ -577,6 +628,46 @@ var SidebarView = class extends import_obsidian3.ItemView {
         badge: m.type,
         badgeClass: `cm-type-${m.type}`
       })));
+    }
+    this.renderLog(container);
+  }
+  renderLog(parent) {
+    const section = parent.createDiv({ cls: "cm-sidebar-section cm-log-section" });
+    const header = section.createDiv({ cls: "cm-sidebar-section-header" });
+    header.createSpan({ text: "\u041B\u043E\u0433" });
+    header.createSpan({ cls: "cm-count", text: `${this.logEntries.length}` });
+    if (this.logEntries.length > 0) {
+      const clearBtn = header.createEl("button", { cls: "cm-log-clear", text: "\xD7" });
+      clearBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.logEntries = [];
+        this.render();
+      });
+    }
+    this.logEl = section.createDiv({ cls: "cm-log" });
+    if (this.logEntries.length === 0) {
+      this.logEl.createDiv({ cls: "cm-log-empty", text: "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0439" });
+      return;
+    }
+    const actionLabels = {
+      create: "NEW",
+      modify: "UPD",
+      delete: "DEL",
+      rename: "REN"
+    };
+    for (const entry of this.logEntries) {
+      const row = this.logEl.createDiv({ cls: `cm-log-entry cm-log-${entry.action}` });
+      row.createSpan({ cls: "cm-log-time", text: entry.time });
+      row.createSpan({ cls: `cm-badge cm-log-action`, text: actionLabels[entry.action] });
+      row.createSpan({ cls: "cm-log-file", text: entry.file });
+      if (entry.action !== "delete") {
+        row.addEventListener("click", () => {
+          const file = this.app.vault.getAbstractFileByPath(entry.path);
+          if (file && file instanceof import_obsidian3.TFile) {
+            this.app.workspace.getLeaf("tab").openFile(file);
+          }
+        });
+      }
     }
   }
   renderSection(parent, title, items) {
@@ -927,15 +1018,23 @@ async function setContextPriority(plugin) {
 
 // src/sync/changed-writer.ts
 var POLL_INTERVAL = 2e3;
+var IGNORED_DIRS = [".obsidian", "node_modules", ".git"];
+var SESSIONS_PATH = `${CLAUDE_MEMORY_DIR}/${SESSIONS_DIR}`;
 var ChangedWriter = class {
-  // path -> mtime
   constructor(plugin) {
     this.pollTimer = null;
     this.knownFiles = /* @__PURE__ */ new Map();
+    // path -> mtime
+    this.listeners = [];
     this.plugin = plugin;
   }
+  onExternalChange(listener) {
+    this.listeners.push(listener);
+    console.log("[ChangedWriter] listener registered, total:", this.listeners.length);
+  }
   async start() {
-    await this.snapshotCurrentState(CLAUDE_MEMORY_DIR);
+    await this.snapshotCurrentState("");
+    console.log("[ChangedWriter] started, tracking", this.knownFiles.size, "files");
     this.pollTimer = setInterval(() => this.pollForChanges(), POLL_INTERVAL);
   }
   stop() {
@@ -944,57 +1043,121 @@ var ChangedWriter = class {
       this.pollTimer = null;
     }
   }
+  isIgnored(path) {
+    return IGNORED_DIRS.some((d) => path === d || path.startsWith(d + "/"));
+  }
   async snapshotCurrentState(dir) {
     const adapter = this.plugin.app.vault.adapter;
-    const exists = await adapter.exists(dir);
-    if (!exists) return;
+    if (dir && !await adapter.exists(dir)) return;
     const listing = await adapter.list(dir);
     for (const filePath of listing.files) {
+      if (this.isIgnored(filePath)) continue;
       const stat = await adapter.stat(filePath);
       if (stat) {
         this.knownFiles.set(filePath, stat.mtime);
       }
     }
     for (const folderPath of listing.folders) {
+      if (this.isIgnored(folderPath)) continue;
       await this.snapshotCurrentState(folderPath);
     }
   }
   async pollForChanges() {
-    const adapter = this.plugin.app.vault.adapter;
-    const exists = await adapter.exists(CLAUDE_MEMORY_DIR);
-    if (!exists) return;
-    const currentFiles = /* @__PURE__ */ new Map();
-    await this.collectFilesFromAdapter(CLAUDE_MEMORY_DIR, currentFiles);
-    const changedPaths = [];
-    for (const [path, mtime] of currentFiles) {
-      if (path.endsWith(CHANGED_FILE)) continue;
-      const knownMtime = this.knownFiles.get(path);
-      if (knownMtime === void 0 || knownMtime < mtime) {
-        changedPaths.push(path);
-      }
-    }
-    if (changedPaths.length > 0) {
+    try {
+      const currentFiles = /* @__PURE__ */ new Map();
+      await this.collectFilesFromAdapter("", currentFiles);
+      const events = [];
       for (const [path, mtime] of currentFiles) {
-        this.knownFiles.set(path, mtime);
+        if (path.endsWith(CHANGED_FILE)) continue;
+        const knownMtime = this.knownFiles.get(path);
+        if (knownMtime === void 0) {
+          events.push({ path, action: "create" });
+        } else if (knownMtime < mtime) {
+          events.push({ path, action: "modify" });
+        }
       }
-      const guardian = this.plugin.sessionGuardian;
-      if (guardian) {
-        await guardian.ensureTodaySession();
+      for (const [path] of this.knownFiles) {
+        if (path.endsWith(CHANGED_FILE)) continue;
+        if (!currentFiles.has(path)) {
+          events.push({ path, action: "delete" });
+        }
       }
-      await this.writeChangedFile(changedPaths);
+      if (events.length > 0) {
+        console.log("[ChangedWriter] detected", events.length, "changes:", events.map((e) => `${e.action}:${e.path}`));
+        this.knownFiles.clear();
+        for (const [path, mtime] of currentFiles) {
+          this.knownFiles.set(path, mtime);
+        }
+        const guardian = this.plugin.sessionGuardian;
+        if (guardian) {
+          await guardian.ensureTodaySession();
+        }
+        for (const listener of this.listeners) {
+          listener(events);
+        }
+        await this.appendToActiveSession(events);
+        const changedPaths = events.filter((e) => e.action !== "delete").map((e) => e.path);
+        if (changedPaths.length > 0) {
+          await this.writeChangedFile(changedPaths);
+        }
+      }
+    } catch (err) {
+      console.error("[ChangedWriter] poll error:", err);
     }
   }
   async collectFilesFromAdapter(dir, map) {
     const adapter = this.plugin.app.vault.adapter;
+    if (dir && !await adapter.exists(dir)) return;
     const listing = await adapter.list(dir);
     for (const filePath of listing.files) {
+      if (this.isIgnored(filePath)) continue;
       const stat = await adapter.stat(filePath);
       if (stat) {
         map.set(filePath, stat.mtime);
       }
     }
     for (const folderPath of listing.folders) {
+      if (this.isIgnored(folderPath)) continue;
       await this.collectFilesFromAdapter(folderPath, map);
+    }
+  }
+  async appendToActiveSession(events) {
+    const projectEvents = events.filter((e) => !e.path.startsWith(CLAUDE_MEMORY_DIR + "/") && !e.path.startsWith(CLAUDE_MEMORY_DIR));
+    if (projectEvents.length === 0) return;
+    try {
+      const adapter = this.plugin.app.vault.adapter;
+      const sessionsExist = await adapter.exists(SESSIONS_PATH);
+      if (!sessionsExist) return;
+      const listing = await adapter.list(SESSIONS_PATH);
+      let activeSessionPath = null;
+      for (const filePath of listing.files.sort().reverse()) {
+        if (!filePath.endsWith(".md")) continue;
+        const content2 = await adapter.read(filePath);
+        if (content2.includes("status: in_progress")) {
+          activeSessionPath = filePath;
+          break;
+        }
+      }
+      if (!activeSessionPath) return;
+      const content = await adapter.read(activeSessionPath);
+      const actionLabels = { create: "NEW", modify: "UPD", delete: "DEL" };
+      const newEntries = projectEvents.map((e) => {
+        const time = (/* @__PURE__ */ new Date()).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+        return `- \`${actionLabels[e.action]}\` [[${e.path}]] (${time})`;
+      });
+      if (content.includes("## \u0417\u0430\u0442\u0440\u043E\u043D\u0443\u0442\u044B\u0435 \u0444\u0430\u0439\u043B\u044B")) {
+        const sectionIdx = content.indexOf("## \u0417\u0430\u0442\u0440\u043E\u043D\u0443\u0442\u044B\u0435 \u0444\u0430\u0439\u043B\u044B");
+        const afterSection = content.indexOf("\n## ", sectionIdx + 1);
+        const insertPos = afterSection !== -1 ? afterSection : content.length;
+        const updated = content.slice(0, insertPos).trimEnd() + "\n" + newEntries.join("\n") + "\n" + (afterSection !== -1 ? "\n" + content.slice(afterSection) : "");
+        await adapter.write(activeSessionPath, updated);
+      } else {
+        const updated = content.trimEnd() + "\n\n## \u0417\u0430\u0442\u0440\u043E\u043D\u0443\u0442\u044B\u0435 \u0444\u0430\u0439\u043B\u044B\n\n" + newEntries.join("\n") + "\n";
+        await adapter.write(activeSessionPath, updated);
+      }
+      console.log("[ChangedWriter] appended", projectEvents.length, "file changes to session:", activeSessionPath);
+    } catch (err) {
+      console.error("[ChangedWriter] failed to append to session:", err);
     }
   }
   async writeChangedFile(paths) {
@@ -1016,7 +1179,7 @@ var ChangedWriter = class {
 
 // src/sync/session-guardian.ts
 var import_obsidian5 = require("obsidian");
-var SESSIONS_PATH = `${CLAUDE_MEMORY_DIR}/${SESSIONS_DIR}`;
+var SESSIONS_PATH2 = `${CLAUDE_MEMORY_DIR}/${SESSIONS_DIR}`;
 var SessionGuardian = class {
   constructor(plugin) {
     this.plugin = plugin;
@@ -1029,7 +1192,7 @@ var SessionGuardian = class {
    * and mark them as status: incomplete
    */
   async closeStaleInProgressSessions() {
-    const sessionsFolder = this.plugin.app.vault.getAbstractFileByPath(SESSIONS_PATH);
+    const sessionsFolder = this.plugin.app.vault.getAbstractFileByPath(SESSIONS_PATH2);
     if (!sessionsFolder || !(sessionsFolder instanceof import_obsidian5.TFolder)) return;
     const today = this.todayPrefix();
     for (const child of sessionsFolder.children) {
@@ -1047,7 +1210,7 @@ var SessionGuardian = class {
    * If no session exists, create a stub.
    */
   async ensureTodaySession() {
-    const sessionsFolder = this.plugin.app.vault.getAbstractFileByPath(SESSIONS_PATH);
+    const sessionsFolder = this.plugin.app.vault.getAbstractFileByPath(SESSIONS_PATH2);
     if (!sessionsFolder || !(sessionsFolder instanceof import_obsidian5.TFolder)) return;
     const today = this.todayPrefix();
     const hasToday = sessionsFolder.children.some(
@@ -1061,7 +1224,7 @@ var SessionGuardian = class {
     const now = /* @__PURE__ */ new Date();
     const hhmm = `${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}`;
     const filename = `${today} ${hhmm} \u2014 \u041D\u043E\u0432\u0430\u044F \u0441\u0435\u0441\u0441\u0438\u044F.md`;
-    const path = `${SESSIONS_PATH}/${filename}`;
+    const path = `${SESSIONS_PATH2}/${filename}`;
     if (this.plugin.app.vault.getAbstractFileByPath(path)) return;
     const content = [
       "---",

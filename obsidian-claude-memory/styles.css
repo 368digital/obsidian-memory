@@ -297,3 +297,94 @@
   background: #9b59b633;
   color: var(--text-normal);
 }
+
+/* === Лог === */
+.cm-log-section {
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 8px;
+}
+
+.cm-log {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.cm-log-empty {
+  font-size: 0.75em;
+  color: var(--text-faint);
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.cm-log-clear {
+  font-size: 0.8em;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.cm-log-clear:hover {
+  color: var(--text-normal);
+}
+
+.cm-log-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.75em;
+  cursor: pointer;
+}
+
+.cm-log-entry:hover {
+  background: var(--background-modifier-hover);
+}
+
+.cm-log-delete {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cm-log-time {
+  color: var(--text-faint);
+  font-family: var(--font-monospace);
+  font-size: 0.9em;
+  flex-shrink: 0;
+}
+
+.cm-log-action {
+  font-size: 0.8em;
+  padding: 1px 4px;
+  flex-shrink: 0;
+}
+
+.cm-log-create .cm-log-action {
+  background: #27ae6033;
+  color: var(--color-green);
+}
+
+.cm-log-modify .cm-log-action {
+  background: #3498db33;
+  color: var(--color-blue);
+}
+
+.cm-log-delete .cm-log-action {
+  background: #e74c3c33;
+  color: var(--color-red);
+}
+
+.cm-log-rename .cm-log-action {
+  background: #f39c1233;
+  color: var(--color-yellow);
+}
+
+.cm-log-file {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-normal);
+}
