@@ -22,7 +22,7 @@ __export(main_exports, {
   default: () => ClaudeMemoryPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/views/DashboardView.ts
 var import_obsidian = require("obsidian");
@@ -761,6 +761,10 @@ var ChangedWriter = class {
   }
   async writeChangedFile() {
     if (this.pendingPaths.size === 0) return;
+    const guardian = this.plugin.sessionGuardian;
+    if (guardian) {
+      await guardian.ensureTodaySession();
+    }
     const changedPath = `${CLAUDE_MEMORY_DIR}/${CHANGED_FILE}`;
     const content = [...this.pendingPaths].join("\n") + "\n";
     const existing = this.plugin.app.vault.getAbstractFileByPath(changedPath);
@@ -778,11 +782,95 @@ var ChangedWriter = class {
   }
 };
 
+// src/sync/session-guardian.ts
+var import_obsidian6 = require("obsidian");
+var SESSIONS_PATH = `${CLAUDE_MEMORY_DIR}/${SESSIONS_DIR}`;
+var SessionGuardian = class {
+  constructor(plugin) {
+    this.plugin = plugin;
+  }
+  async onload() {
+    await this.closeStaleInProgressSessions();
+  }
+  /**
+   * Find all sessions with status: in_progress from previous days
+   * and mark them as status: incomplete
+   */
+  async closeStaleInProgressSessions() {
+    const sessionsFolder = this.plugin.app.vault.getAbstractFileByPath(SESSIONS_PATH);
+    if (!sessionsFolder || !(sessionsFolder instanceof import_obsidian6.TFolder)) return;
+    const today = this.todayPrefix();
+    for (const child of sessionsFolder.children) {
+      if (!(child instanceof import_obsidian6.TFile) || !child.name.endsWith(".md")) continue;
+      if (child.name.startsWith(today)) continue;
+      const content = await this.plugin.app.vault.read(child);
+      if (!content.includes("status: in_progress")) continue;
+      const updated = content.replace("status: in_progress", "status: incomplete");
+      await this.plugin.app.vault.modify(child, updated);
+    }
+  }
+  /**
+   * Check if a session file exists for today.
+   * Called by ChangedWriter when files change in claude-memory/.
+   * If no session exists, create a stub.
+   */
+  async ensureTodaySession() {
+    const sessionsFolder = this.plugin.app.vault.getAbstractFileByPath(SESSIONS_PATH);
+    if (!sessionsFolder || !(sessionsFolder instanceof import_obsidian6.TFolder)) return;
+    const today = this.todayPrefix();
+    const hasToday = sessionsFolder.children.some(
+      (f) => f instanceof import_obsidian6.TFile && f.name.startsWith(today)
+    );
+    if (!hasToday) {
+      await this.createStubSession(today);
+    }
+  }
+  async createStubSession(today) {
+    const now = /* @__PURE__ */ new Date();
+    const hhmm = `${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}`;
+    const filename = `${today} ${hhmm} \u2014 \u041D\u043E\u0432\u0430\u044F \u0441\u0435\u0441\u0441\u0438\u044F.md`;
+    const path = `${SESSIONS_PATH}/${filename}`;
+    if (this.plugin.app.vault.getAbstractFileByPath(path)) return;
+    const content = [
+      "---",
+      `date: ${today}`,
+      "duration: ",
+      "streams: []",
+      "status: in_progress",
+      "---",
+      "",
+      `# \u0421\u0435\u0441\u0441\u0438\u044F ${today} ${hhmm.replace("-", ":")} \u2014 \u041D\u043E\u0432\u0430\u044F \u0441\u0435\u0441\u0441\u0438\u044F`,
+      "",
+      "## \u041A\u043E\u043D\u0442\u0435\u043A\u0441\u0442",
+      "(stub \u0441\u043E\u0437\u0434\u0430\u043D \u043F\u043B\u0430\u0433\u0438\u043D\u043E\u043C Obsidian \u2014 \u0437\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u043F\u0440\u0438 \u0441\u0442\u0430\u0440\u0442\u0435 \u0441\u0435\u0441\u0441\u0438\u0438 Claude Code)",
+      "",
+      "## \u041A\u043B\u044E\u0447\u0435\u0432\u044B\u0435 \u0440\u0435\u0448\u0435\u043D\u0438\u044F",
+      "",
+      "## \u0427\u0442\u043E \u0441\u0434\u0435\u043B\u0430\u043D\u043E",
+      "",
+      "## \u0424\u0430\u0439\u043B\u044B \u0437\u0430\u0442\u0440\u043E\u043D\u0443\u0442\u044B",
+      "",
+      "## Git commits",
+      "",
+      "## \u041F\u0440\u043E\u0431\u043B\u0435\u043C\u044B",
+      "",
+      "## \u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0435 \u0448\u0430\u0433\u0438",
+      ""
+    ].join("\n");
+    await this.plugin.app.vault.create(path, content);
+  }
+  todayPrefix() {
+    const now = /* @__PURE__ */ new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  }
+};
+
 // src/main.ts
-var ClaudeMemoryPlugin = class extends import_obsidian6.Plugin {
+var ClaudeMemoryPlugin = class extends import_obsidian7.Plugin {
   constructor() {
     super(...arguments);
     this.changedWriter = null;
+    this.sessionGuardian = null;
   }
   async onload() {
     const memoryDir = this.app.vault.getAbstractFileByPath(CLAUDE_MEMORY_DIR);
@@ -800,6 +888,8 @@ var ClaudeMemoryPlugin = class extends import_obsidian6.Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.activateView(SIDEBAR_VIEW_TYPE, "left");
     });
+    this.sessionGuardian = new SessionGuardian(this);
+    await this.sessionGuardian.onload();
     this.changedWriter = new ChangedWriter(this);
     this.changedWriter.start();
   }

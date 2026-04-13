@@ -42,6 +42,12 @@ export class ChangedWriter {
   private async writeChangedFile() {
     if (this.pendingPaths.size === 0) return;
 
+    // Trigger session guardian to ensure today's session exists
+    const guardian = this.plugin.sessionGuardian;
+    if (guardian) {
+      await guardian.ensureTodaySession();
+    }
+
     const changedPath = `${CLAUDE_MEMORY_DIR}/${CHANGED_FILE}`;
     const content = [...this.pendingPaths].join('\n') + '\n';
 

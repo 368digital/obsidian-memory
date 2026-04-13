@@ -2,3 +2,4 @@ node_modules/
 *.tmp.*
 .obsidian/
 *.base
+claude-memory/
