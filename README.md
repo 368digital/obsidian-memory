@@ -36,19 +36,32 @@ Obsidian plugin (TypeScript) для визуализации и управлен
 
 ## Установка
 
-### Skill
+### Claude Code Plugin (рекомендуется)
 
-Скопировать папку `obsidian-memory-skill/` в `~/.claude/skills/`:
+Установка через Claude Code — одна команда ставит и skill, и всё остальное:
 
 ```bash
-cp -r obsidian-memory-skill ~/.claude/skills/obsidian-memory-skill
+claude /install-plugin 368digital/obsidian-memory
 ```
 
-Skill автоматически появится в списке доступных skills Claude Code.
+Skill автоматически зарегистрируется и станет доступен во всех проектах.
 
-### Plugin
+### Ручная установка
 
-Скопировать собранные файлы в vault:
+Если нужна ручная установка:
+
+```bash
+# Клонировать
+git clone https://github.com/368digital/obsidian-memory.git
+cd obsidian-memory
+
+# Скопировать skill в Claude Code
+cp -r skills/obsidian-memory ~/.claude/skills/obsidian-memory-skill
+```
+
+### Obsidian Plugin
+
+Obsidian-плагин ставится в каждый проект отдельно:
 
 ```bash
 # Собрать плагин
@@ -56,7 +69,7 @@ cd obsidian-claude-memory
 npm install
 npm run build
 
-# Скопировать в vault
+# Скопировать в vault проекта
 mkdir -p /path/to/project/.obsidian/plugins/obsidian-claude-memory
 cp main.js manifest.json styles.css /path/to/project/.obsidian/plugins/obsidian-claude-memory/
 ```

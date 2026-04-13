@@ -1,0 +1,21 @@
+{
+  "name": "obsidian-memory",
+  "description": "Persistent project memory via Obsidian vault for Claude Code — sessions, streams, memories with wikilinks and graph visualization",
+  "version": "0.1.0",
+  "author": {
+    "name": "368digital",
+    "email": "dev@368.digital"
+  },
+  "homepage": "https://github.com/368digital/obsidian-memory",
+  "repository": "https://github.com/368digital/obsidian-memory",
+  "license": "MIT",
+  "keywords": [
+    "obsidian",
+    "memory",
+    "context",
+    "sessions",
+    "streams",
+    "gsd",
+    "wikilinks"
+  ]
+}

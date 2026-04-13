@@ -1,0 +1,20 @@
+{
+  "name": "obsidian-memory",
+  "description": "Persistent project memory via Obsidian vault for Claude Code",
+  "owner": {
+    "name": "368digital",
+    "email": "dev@368.digital"
+  },
+  "plugins": [
+    {
+      "name": "obsidian-memory",
+      "description": "Persistent project memory via Obsidian vault — sessions, streams, memories with wikilinks and graph visualization",
+      "version": "0.1.0",
+      "source": "./",
+      "author": {
+        "name": "368digital",
+        "email": "dev@368.digital"
+      }
+    }
+  ]
+}
