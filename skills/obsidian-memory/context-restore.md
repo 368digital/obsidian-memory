@@ -13,6 +13,16 @@ When the skill activates (`.claude-memory/` detected), restore context in this o
 - Read `.claude-memory/MEMORY.md`
 - This gives you the full index of memories, recent sessions, active streams
 
+### Step 2.5: Read bases and ask for selection
+- Glob `claude-memory/bases/*.md`
+- Read all base files (usually few — 2-10 files)
+- Present bases list to user and ask: "К какой базе относится эта работа?"
+  - Show numbered list with base names and descriptions
+  - User can select one or multiple, or say "Новая база"
+- If "Новая база": ask for name and description, create the base file
+- Read chronology of selected bases — this is the current state context
+- Determine `continues`: find the last session in the selected base(s), suggest it
+
 ### Step 3: Read recent sessions
 - Glob `.claude-memory/sessions/*.md`, sort by filename (date descending)
 - Read the last 3-5 session files

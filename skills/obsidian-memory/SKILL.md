@@ -22,6 +22,7 @@ This skill activates automatically when `claude-memory/` directory exists in the
 - `memories/` — persistent memories (user, feedback, project, reference types)
 - `sessions/` — session summaries with context, decisions, next steps
 - `streams/` — GSD workstream tracking (phases, quick tasks)
+- `bases/` — contextual blocks grouping sessions by work domain
 - `graph/` — auto-generated cross-references
 - `.changed` — signal file for realtime sync from Obsidian edits
 
@@ -35,10 +36,42 @@ This skill activates automatically when `claude-memory/` directory exists in the
 
 ## Wikilinks
 
-Use `[[filename without extension]]` for all cross-references:
+Use `[[wikilinks]]` for ALL cross-references — both memory files AND project files:
 - `[[Роль пользователя]]` — link to memory
 - `[[Фаза 04 — Каскады и режим редактирования]]` — link to stream
 - `[[2026-04-13 14-30 — Фикс отображения домена]]` — link to session
+- `[[README.md]]` — link to project file
+- `[[obsidian-claude-memory/src/sync/changed-writer.ts]]` — link to source file
+
+Project files MUST be linked with wikilinks in sessions. This connects the Obsidian graph
+between sessions and the actual files that were changed. Without this, memory is disconnected from the project.
+
+## Базы (Bases)
+
+Базы — контекстные блоки (направления работы), группирующие сессии. Каждая база — файл в `claude-memory/bases/{Название}.md`.
+
+### Формат файла базы
+```yaml
+---
+name: {Читаемое название}
+description: {Однострочное описание — используется для определения принадлежности сессий}
+paths:
+  - {подсказки путей для автоопределения}
+tags: [{теги для группировки}]
+created: {YYYY-MM-DD}
+---
+```
+
+Секции тела:
+- `## Описание` — что покрывает база
+- `## Ключевые компоненты` — основные части (опционально)
+- `## Хронология` — снимки состояния: дата — что изменилось + [[wikilink на сессию]]
+
+### Связь сессий и баз
+- Сессии ссылаются на базы во frontmatter: `bases: ["[[Название базы]]"]`
+- Одна сессия может принадлежать нескольким базам
+- Claude спрашивает какая база при старте сессии
+- Команда `/obs-mem base` для управления базами в процессе
 
 ## Memory Format
 

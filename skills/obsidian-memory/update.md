@@ -2,7 +2,7 @@
 
 ## Trigger
 
-User says "update obsidian-memory", "/update-obsidian-memory", or similar.
+User says "update obsidian-memory", "/update-obsidian-memory", "/obs-mem update", or similar.
 
 ## Steps
 
