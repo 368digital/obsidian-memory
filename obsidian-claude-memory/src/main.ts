@@ -12,20 +12,25 @@ export default class ClaudeMemoryPlugin extends Plugin {
   sessionGuardian: SessionGuardian | null = null;
 
   async onload() {
-    // Only activate if claude-memory/ exists
+    // Register views early (before vault is ready) so Obsidian can restore saved layouts
+    this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
+    this.registerView(TIMELINE_VIEW_TYPE, (leaf) => new TimelineView(leaf, this));
+    this.registerView(SIDEBAR_VIEW_TYPE, (leaf) => new SidebarView(leaf, this));
+
+    // Register commands early so they're available in command palette
+    registerCommands(this);
+
+    // Wait for vault to be fully indexed before checking claude-memory/
+    this.app.workspace.onLayoutReady(() => this.activate());
+  }
+
+  private async activate() {
+    // Now vault is ready — check if claude-memory/ exists
     const memoryDir = this.app.vault.getAbstractFileByPath(CLAUDE_MEMORY_DIR);
     if (!memoryDir) {
       console.log('Claude Memory: claude-memory/ not found, plugin inactive');
       return;
     }
-
-    // Register views
-    this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
-    this.registerView(TIMELINE_VIEW_TYPE, (leaf) => new TimelineView(leaf, this));
-    this.registerView(SIDEBAR_VIEW_TYPE, (leaf) => new SidebarView(leaf, this));
-
-    // Register commands
-    registerCommands(this);
 
     // Add ribbon icon to open dashboard
     this.addRibbonIcon('brain', 'Claude Memory Dashboard', () => {
@@ -33,9 +38,7 @@ export default class ClaudeMemoryPlugin extends Plugin {
     });
 
     // Set up sidebar
-    this.app.workspace.onLayoutReady(() => {
-      this.activateView(SIDEBAR_VIEW_TYPE, 'left');
-    });
+    this.activateView(SIDEBAR_VIEW_TYPE, 'left');
 
     // Session guardian: close stale sessions, create stubs
     this.sessionGuardian = new SessionGuardian(this);

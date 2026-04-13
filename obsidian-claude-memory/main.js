@@ -873,21 +873,22 @@ var ClaudeMemoryPlugin = class extends import_obsidian7.Plugin {
     this.sessionGuardian = null;
   }
   async onload() {
+    this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
+    this.registerView(TIMELINE_VIEW_TYPE, (leaf) => new TimelineView(leaf, this));
+    this.registerView(SIDEBAR_VIEW_TYPE, (leaf) => new SidebarView(leaf, this));
+    registerCommands(this);
+    this.app.workspace.onLayoutReady(() => this.activate());
+  }
+  async activate() {
     const memoryDir = this.app.vault.getAbstractFileByPath(CLAUDE_MEMORY_DIR);
     if (!memoryDir) {
       console.log("Claude Memory: claude-memory/ not found, plugin inactive");
       return;
     }
-    this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
-    this.registerView(TIMELINE_VIEW_TYPE, (leaf) => new TimelineView(leaf, this));
-    this.registerView(SIDEBAR_VIEW_TYPE, (leaf) => new SidebarView(leaf, this));
-    registerCommands(this);
     this.addRibbonIcon("brain", "Claude Memory Dashboard", () => {
       this.activateView(DASHBOARD_VIEW_TYPE);
     });
-    this.app.workspace.onLayoutReady(() => {
-      this.activateView(SIDEBAR_VIEW_TYPE, "left");
-    });
+    this.activateView(SIDEBAR_VIEW_TYPE, "left");
     this.sessionGuardian = new SessionGuardian(this);
     await this.sessionGuardian.onload();
     this.changedWriter = new ChangedWriter(this);
