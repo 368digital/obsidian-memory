@@ -1,6 +1,6 @@
 import { Notice, Modal, App, Setting, TFile } from 'obsidian';
 import type ClaudeMemoryPlugin from '../main';
-import { CLAUDE_MEMORY_DIR, MEMORIES_DIR, STREAMS_DIR, MEMORY_INDEX } from '../types';
+import { CLAUDE_MEMORY_DIR, MEMORIES_DIR, STREAMS_DIR, BASES_DIR, MEMORY_INDEX } from '../types';
 import { loadMemoryIndex } from '../parser';
 
 export function registerCommands(plugin: ClaudeMemoryPlugin) {
@@ -20,6 +20,12 @@ export function registerCommands(plugin: ClaudeMemoryPlugin) {
     id: 'link-streams',
     name: 'Link Streams',
     callback: () => new LinkStreamsModal(plugin.app, plugin).open(),
+  });
+
+  plugin.addCommand({
+    id: 'create-base',
+    name: 'Create Base',
+    callback: () => new CreateBaseModal(plugin.app, plugin).open(),
   });
 
   plugin.addCommand({
@@ -177,6 +183,92 @@ class CreateStreamModal extends Modal {
             new Notice(`Создан поток: ${dirName}/`);
           }
 
+          this.close();
+        })
+    );
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
+}
+
+class CreateBaseModal extends Modal {
+  private plugin: ClaudeMemoryPlugin;
+
+  constructor(app: App, plugin: ClaudeMemoryPlugin) {
+    super(app);
+    this.plugin = plugin;
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Создать базу' });
+
+    let name = '';
+    let description = '';
+    let paths = '';
+    let tags = '';
+
+    new Setting(contentEl).setName('Название').addText((t) =>
+      t.setPlaceholder('Плагин Obsidian').onChange((v) => (name = v))
+    );
+
+    new Setting(contentEl).setName('Описание').addTextArea((t) =>
+      t.setPlaceholder('Что это за направление работы').onChange((v) => (description = v))
+    );
+
+    new Setting(contentEl).setName('Пути').setDesc('Через запятую').addText((t) =>
+      t.setPlaceholder('src/sync/, src/main.ts').onChange((v) => (paths = v))
+    );
+
+    new Setting(contentEl).setName('Теги').setDesc('Через запятую').addText((t) =>
+      t.setPlaceholder('obsidian, plugin').onChange((v) => (tags = v))
+    );
+
+    new Setting(contentEl).addButton((btn) =>
+      btn
+        .setButtonText('Создать')
+        .setCta()
+        .onClick(async () => {
+          if (!name) {
+            new Notice('Введите название');
+            return;
+          }
+
+          const today = new Date().toISOString().slice(0, 10);
+          const pathsList = paths ? paths.split(',').map((p) => p.trim()).filter(Boolean) : [];
+          const tagsList = tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [];
+
+          const pathsYaml = pathsList.length > 0
+            ? `paths:\n${pathsList.map((p) => `  - ${p}`).join('\n')}`
+            : 'paths: []';
+          const tagsYaml = tagsList.length > 0
+            ? `tags: [${tagsList.join(', ')}]`
+            : 'tags: []';
+
+          const content = [
+            '---',
+            `name: ${name}`,
+            `description: ${description}`,
+            pathsYaml,
+            tagsYaml,
+            `created: ${today}`,
+            '---',
+            '',
+            '## Описание',
+            description,
+            '',
+            '## Ключевые компоненты',
+            '',
+            '',
+            '## Хронология',
+            '',
+          ].join('\n');
+
+          const filePath = `${CLAUDE_MEMORY_DIR}/${BASES_DIR}/${name}.md`;
+          await this.app.vault.create(filePath, content);
+          new Notice(`Создана база: ${name}`);
           this.close();
         })
     );
