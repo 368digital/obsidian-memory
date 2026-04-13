@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TODAY=$(date +%Y-%m-%d); FOUND=$(ls claude-memory/sessions/ 2>/dev/null | grep \"^${TODAY}\" | head -1); if [ -z \"$FOUND\" ]; then echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"SessionStart\\\",\\\"additionalContext\\\":\\\"[obsidian-memory] claude-memory/ exists but no session file for today. Create session file NOW in claude-memory/sessions/ following the format in CLAUDE.md.\\\"}}\"; else echo \"{}\"; fi; else echo \"{}\"; fi'",
+            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then BASES=$(ls claude-memory/bases/ 2>/dev/null | sed \"s/.md//\" | head -10 | tr \"\\n\" \", \"); echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"SessionStart\\\",\\\"additionalContext\\\":\\\"[obsidian-memory] ОБЯЗАТЕЛЬНО: 1) Прочитай claude-memory/.changed 2) Прочитай claude-memory/MEMORY.md 3) Прочитай claude-memory/bases/*.md 4) Спроси к какой базе относится работа (доступные: ${BASES:-нет баз}) 5) Создай НОВЫЙ файл сессии с bases и continues. Каждый диалог = новая сессия.\\\"}}\"; else echo \"{}\"; fi'",
             "timeout": 5,
             "statusMessage": "Checking obsidian-memory session..."
           }
@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TODAY=$(date +%Y-%m-%d); FOUND=$(ls claude-memory/sessions/ 2>/dev/null | grep \"^${TODAY}\" | head -1); if [ -n \"$FOUND\" ]; then STATUS=$(grep \"^status:\" \"claude-memory/sessions/$FOUND\" 2>/dev/null | head -1); if echo \"$STATUS\" | grep -q \"in_progress\"; then echo \"{\\\"systemMessage\\\":\\\"[obsidian-memory] Session still in_progress. Update status to completed and add next steps.\\\"}\"; else echo \"{}\"; fi; else echo \"{}\"; fi; else echo \"{}\"; fi'",
+            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TODAY=$(date +%Y-%m-%d); FOUND=$(ls claude-memory/sessions/ 2>/dev/null | grep \"^${TODAY}\" | sort -r | head -1); if [ -n \"$FOUND\" ]; then STATUS=$(grep \"^status:\" \"claude-memory/sessions/$FOUND\" 2>/dev/null | head -1); if echo \"$STATUS\" | grep -q \"in_progress\"; then echo \"{\\\"systemMessage\\\":\\\"[obsidian-memory] Сессия $FOUND ещё in_progress. Обнови status: completed и добавь Следующие шаги.\\\"}\"; else echo \"{}\"; fi; else echo \"{}\"; fi; else echo \"{}\"; fi'",
             "timeout": 5,
             "statusMessage": "Checking obsidian-memory session status..."
           }
