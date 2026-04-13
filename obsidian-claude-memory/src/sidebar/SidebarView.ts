@@ -52,7 +52,7 @@ export class SidebarView extends ItemView {
     container.empty();
     container.addClass('claude-memory-sidebar');
 
-    const { memories, sessions, streams } = await loadMemoryIndex(this.app.vault);
+    const { memories, sessions, streams, bases } = await loadMemoryIndex(this.app.vault);
 
     const filterBar = container.createDiv({ cls: 'cm-filter-bar' });
     for (const f of ['all', 'active', 'archived'] as Filter[]) {
@@ -67,13 +67,22 @@ export class SidebarView extends ItemView {
     }
 
     const counts = container.createDiv({ cls: 'cm-sidebar-counts' });
-    counts.setText(`${memories.length} памяти · ${sessions.length} сессий · ${streams.length} потоков`);
+    counts.setText(`${bases.length} баз · ${memories.length} памяти · ${sessions.length} сессий · ${streams.length} потоков`);
 
     const filteredStreams = streams.filter((s) => {
       if (this.filter === 'active') return s.status === 'active' || s.status === 'paused';
       if (this.filter === 'archived') return s.status === 'complete';
       return true;
     });
+
+    if (bases.length > 0) {
+      this.renderSection(container, 'Базы', bases.map((b) => ({
+        name: b.name,
+        path: b.path,
+        badge: `${b.tags[0] || ''}`,
+        badgeClass: 'cm-base-badge',
+      })));
+    }
 
     if (filteredStreams.length > 0) {
       this.renderSection(container, 'Потоки', filteredStreams.map((s) => ({
