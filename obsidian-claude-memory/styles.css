@@ -287,3 +287,13 @@
 .cm-sidebar-item:hover {
   background: var(--background-modifier-hover);
 }
+
+/* === Базы === */
+.cm-base {
+  border-left: 3px solid var(--color-purple);
+}
+
+.cm-base-badge {
+  background: #9b59b633;
+  color: var(--text-normal);
+}
