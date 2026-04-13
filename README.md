@@ -1,176 +1,196 @@
 # Obsidian Memory
 
-Система сохранения полного контекста проекта через Obsidian vault для Claude Code.
+Persistent project context for Claude Code via Obsidian vault.
 
-## Проблема
+## The Problem
 
-- При закрытии консоли Claude Code контекст теряется
-- При работе через GSD идут несколько потоков задач — связи между ними не сохраняются
-- Приходится заново объяснять агенту что делать
+- Claude Code loses context when the session ends
+- GSD workflows run multiple parallel streams — connections between them aren't preserved
+- You have to re-explain everything to the agent each time
 
-## Решение
+## The Solution
 
-Obsidian vault в каждом проекте. Агент записывает всё в `claude-memory/`. При новой сессии — автоматически восстанавливает контекст. Obsidian даёт UI для навигации, визуализации графа связей и активного управления.
+An Obsidian vault in every project. The agent writes everything to `claude-memory/`. On new sessions, context is automatically restored. Obsidian provides a UI for navigation, graph visualization, and active management.
 
-## Компоненты
+## Components
 
-### 1. Skill `obsidian-memory-skill/`
+### 1. Skill — `obsidian-memory-skill/`
 
-Claude Code skill — набор markdown-инструкций, которые управляют поведением агента:
+Claude Code skill — a set of markdown instructions that control agent behavior:
 
-- **SKILL.md** — главный файл: активация, формат файлов, именование, wikilinks
-- **session-capture.md** — как записывать сессии (диалоги с пользователем)
-- **stream-tracking.md** — как отслеживать потоки работы (GSD phases, quick tasks)
-- **context-restore.md** — как восстанавливать контекст при старте новой сессии
-- **init.md** — инициализация `claude-memory/` в проекте с миграцией существующих memories
+- **SKILL.md** — main file: activation, file format, naming, wikilinks
+- **session-capture.md** — how to record sessions (conversations with the user)
+- **stream-tracking.md** — how to track work streams (GSD phases, quick tasks)
+- **context-restore.md** — how to restore context at new session start
+- **init.md** — initialize `claude-memory/` in a project with migration of existing memories
+- **update.md** — auto-update skill and plugin from GitHub
 
-### 2. Plugin `obsidian-claude-memory/`
+### 2. Plugin — `obsidian-claude-memory/`
 
-Obsidian plugin (TypeScript) для визуализации и управления:
+Obsidian plugin (TypeScript) for visualization and management:
 
-- **Memory Dashboard** — три колонки: потоки, сессии, записи памяти
-- **Stream Timeline** — вертикальный timeline для конкретного потока
-- **Sidebar** — дерево файлов с фильтрами (все / активные / архив)
-- **5 команд** — Create Memory, Create Stream, Link Streams, Archive Stream, Set Context
-- **Realtime sync** — при редактировании в Obsidian агент подхватывает изменения через `.changed` файл
+- **Memory Dashboard** — three columns: streams, sessions, memories
+- **Stream Timeline** — vertical timeline for a specific stream
+- **Sidebar** — file tree with filters (all / active / archived)
+- **5 commands** — Create Memory, Create Stream, Link Streams, Archive Stream, Set Context
+- **Realtime sync** — edits in Obsidian are picked up by the agent via `.changed` file
+- **Session Guardian** — closes stale sessions, creates stub files automatically
 
-## Установка
+## Installation
 
-### Claude Code Plugin (рекомендуется)
+### Claude Code Plugin (recommended)
 
-Установка через Claude Code — одна команда ставит и skill, и всё остальное:
+One command installs both the skill and everything else:
 
 ```bash
 claude /install-plugin 368digital/obsidian-memory
 ```
 
-Skill автоматически зарегистрируется и станет доступен во всех проектах.
+The skill will be registered automatically and available in all projects.
 
-### Ручная установка
-
-Если нужна ручная установка:
+### Manual Installation
 
 ```bash
-# Клонировать
+# Clone
 git clone https://github.com/368digital/obsidian-memory.git
 cd obsidian-memory
 
-# Скопировать skill в Claude Code
+# Copy skill to Claude Code
 cp -r skills/obsidian-memory ~/.claude/skills/obsidian-memory-skill
 ```
 
 ### Obsidian Plugin
 
-Obsidian-плагин ставится в каждый проект отдельно:
+The Obsidian plugin is installed per-project:
 
 ```bash
-# Собрать плагин
+# Build the plugin
 cd obsidian-claude-memory
 npm install
 npm run build
 
-# Скопировать в vault проекта
+# Copy to project vault
 mkdir -p /path/to/project/.obsidian/plugins/obsidian-claude-memory
 cp main.js manifest.json styles.css /path/to/project/.obsidian/plugins/obsidian-claude-memory/
 ```
 
-Затем в Obsidian: Settings → Community plugins → включить "Claude Memory".
+Then in Obsidian: Settings → Community plugins → enable "Claude Memory".
 
-## Использование
+## Usage
 
-### Инициализация
+### Initialization
 
-В Claude Code скажите: **"init obsidian-memory"**
+In Claude Code, say: **"init obsidian-memory"**
 
-Skill создаст:
-- `claude-memory/` — структуру папок (memories, sessions, streams, graph)
-- `MEMORY.md` — индекс
-- Мигрирует существующие memories из `~/.claude/projects/.../memory/`
+The skill will create:
+- `claude-memory/` — directory structure (memories, sessions, streams, graph)
+- `MEMORY.md` — index file
+- `CLAUDE.md` — session tracking instructions
+- `.claude/settings.json` — SessionStart + Stop hooks
+- Migrate existing memories from `~/.claude/projects/.../memory/`
 
-### Структура vault
+### Vault Structure
 
 ```
 my-project/
-├── .obsidian/plugins/obsidian-claude-memory/   ← плагин
-├── claude-memory/                               ← данные
-│   ├── MEMORY.md                                ← индекс
+├── .obsidian/plugins/obsidian-claude-memory/   ← plugin
+├── claude-memory/                               ← data
+│   ├── MEMORY.md                                ← index
 │   ├── memories/                                ← persistent memories
-│   │   ├── Роль пользователя.md
-│   │   ├── Фидбэк — Всегда использовать GSD.md
-│   │   └── Проект — Архитектура и деплой.md
-│   ├── sessions/                                ← диалоги
-│   │   └── 2026-04-13 14-30 — Фикс домена.md
-│   ├── streams/                                 ← потоки работы
-│   │   ├── Фаза 04 — Каскады/
+│   │   ├── User Role.md
+│   │   ├── Feedback — Always Use GSD.md
+│   │   └── Project — Architecture and Deploy.md
+│   ├── sessions/                                ← conversations
+│   │   └── 2026-04-13 14-30 — Fix Domain.md
+│   ├── streams/                                 ← work streams
+│   │   ├── Phase 04 — Cascades/
 │   │   │   ├── STREAM.md
-│   │   │   ├── Решения.md
-│   │   │   └── Прогресс.md
-│   │   └── Быстрая — Фикс domain ID.md
-│   └── graph/                                   ← связи между потоками
-│       └── Перекрёстные ссылки.md
+│   │   │   ├── Decisions.md
+│   │   │   └── Progress.md
+│   │   └── Quick — Fix Domain ID.md
+│   └── graph/                                   ← cross-references
+│       └── Cross References.md
 └── src/
 ```
 
-### Именование файлов
+### File Naming
 
-Все файлы именуются по-русски, user-friendly:
-
-| Тип | Формат | Пример |
-|-----|--------|--------|
-| Memory (user) | `{Описание}.md` | `Роль пользователя.md` |
-| Memory (feedback) | `Фидбэк — {Описание}.md` | `Фидбэк — Всегда использовать GSD.md` |
-| Memory (project) | `Проект — {Описание}.md` | `Проект — Архитектура и деплой.md` |
-| Memory (reference) | `Справка — {Описание}.md` | `Справка — API документация.md` |
-| Session | `{YYYY-MM-DD HH-mm} — {Описание}.md` | `2026-04-13 14-30 — Фикс домена.md` |
-| Stream (phase) | `Фаза {NN} — {Название}/` | `Фаза 04 — Каскады/` |
-| Stream (quick) | `Быстрая — {Описание}.md` | `Быстрая — Фикс domain ID.md` |
+| Type | Format | Example |
+|------|--------|---------|
+| Memory (user) | `{Description}.md` | `User Role.md` |
+| Memory (feedback) | `Feedback — {Description}.md` | `Feedback — Always Use GSD.md` |
+| Memory (project) | `Project — {Description}.md` | `Project — Architecture.md` |
+| Memory (reference) | `Reference — {Description}.md` | `Reference — API Docs.md` |
+| Session | `{YYYY-MM-DD HH-mm} — {Description}.md` | `2026-04-13 14-30 — Fix Domain.md` |
+| Stream (phase) | `Phase {NN} — {Name}/` | `Phase 04 — Cascades/` |
+| Stream (quick) | `Quick — {Description}.md` | `Quick — Fix Domain ID.md` |
 
 ### Wikilinks
 
-Все файлы связаны через `[[wikilinks]]` — стандарт Obsidian:
+All files are linked via `[[wikilinks]]` — the Obsidian standard:
 
 ```markdown
-Продолжение работы по [[Фаза 04 — Каскады]]. 
-Фикс бага из [[Быстрая — Фикс domain ID]].
-См. также [[Роль пользователя]].
+Continuing work on [[Phase 04 — Cascades]].
+Bug fix from [[Quick — Fix Domain ID]].
+See also [[User Role]].
 ```
 
-### Команды Obsidian (Command Palette)
+### Obsidian Commands (Command Palette)
 
-| Команда | Что делает |
-|---------|-----------|
-| Claude Memory: Create Memory | Создаёт memory-файл с frontmatter |
-| Claude Memory: Create Stream | Создаёт новый поток работы |
-| Claude Memory: Link Streams | Связывает два потока с указанием причины |
-| Claude Memory: Archive Stream | Помечает поток как завершённый |
-| Claude Memory: Set Context | Помечает файл как приоритетный для агента |
+| Command | Description |
+|---------|-------------|
+| Claude Memory: Create Memory | Create a memory file with frontmatter |
+| Claude Memory: Create Stream | Create a new work stream |
+| Claude Memory: Link Streams | Link two streams with a reason |
+| Claude Memory: Archive Stream | Mark a stream as completed |
+| Claude Memory: Set Context | Mark a file as priority for the agent |
 
-## Как это работает
+## How It Works
 
-### Запись (Claude Code → Obsidian)
+### Writing (Claude Code → Obsidian)
 
-1. **При старте сессии** — skill создаёт session-файл в `claude-memory/sessions/`
-2. **Во время работы** — записывает решения, изменённые файлы, прогресс
-3. **При завершении** — генерирует summary и следующие шаги
-4. **Memories** — пишутся в `claude-memory/memories/` вместо стандартного `~/.claude/`
+1. **Session start** — skill creates a session file in `claude-memory/sessions/`
+2. **During work** — records decisions, changed files, progress
+3. **Session end** — generates summary and next steps
+4. **Memories** — written to `claude-memory/memories/` instead of `~/.claude/`
 
-### Чтение (Obsidian → Claude Code)
+### Reading (Obsidian → Claude Code)
 
-1. При сохранении файла в Obsidian, плагин пишет `claude-memory/.changed`
-2. Skill перед каждым ответом проверяет `.changed`
-3. Если есть — перечитывает изменённые файлы и удаляет `.changed`
+1. When a file is saved in Obsidian, the plugin writes `claude-memory/.changed`
+2. The skill checks `.changed` before each response
+3. If found — re-reads modified files and deletes `.changed`
 
-### Восстановление контекста
+### Context Restoration
 
-При новой сессии skill автоматически:
-1. Читает `MEMORY.md` — индекс всего
-2. Читает последние 3-5 сессий
-3. Читает активные потоки
-4. Читает все memories
+On new sessions, the skill automatically:
+1. Reads `MEMORY.md` — the index of everything
+2. Reads the last 3-5 sessions
+3. Reads active streams
+4. Reads all memories
 
-Агент стартует с полным контекстом без вопросов.
+The agent starts with full context, no questions asked.
 
-## Разработка
+### Session Reliability
+
+Three layers ensure sessions are always recorded:
+
+| Layer | Mechanism | Catches |
+|-------|-----------|---------|
+| `CLAUDE.md` | Instructions loaded every session | Claude forgetting the skill |
+| Hooks | SessionStart + Stop in `.claude/settings.json` | Claude ignoring CLAUDE.md |
+| Plugin | SessionGuardian creates stubs, closes stale sessions | Console closed abruptly |
+
+### Auto-Update
+
+The status line checks GitHub for new releases every hour. When an update is available:
+
+```
+obsidian-memory 0.3.0 available (current: 0.2.0) → /update-obsidian-memory
+```
+
+Run `/update-obsidian-memory` to download and install the latest version.
+
+## Development
 
 ### Plugin
 
@@ -181,7 +201,7 @@ npm run dev    # watch mode
 npm run build  # production build
 ```
 
-### Структура плагина
+### Plugin Structure
 
 ```
 src/
@@ -196,9 +216,10 @@ src/
 ├── commands/
 │   └── commands.ts      ← 5 commands with modals
 └── sync/
-    └── changed-writer.ts ← .changed signal writer
+    ├── changed-writer.ts    ← .changed signal writer
+    └── session-guardian.ts  ← Stale session cleanup + stub creation
 ```
 
-## Лицензия
+## License
 
 MIT
