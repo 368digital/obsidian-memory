@@ -289,14 +289,22 @@ Use LANG to determine hook message language:
       "matcher": "Edit|Write",
       "hooks": [{
         "type": "command",
-        "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TOOL_INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$TOOL_INPUT\" | grep -q \"claude-memory/\"; then echo \"{}\"; else TODAY=$(date +%Y-%m-%d); SESSION=$(ls claude-memory/sessions/ 2>/dev/null | grep \"^${TODAY}\" | sort -r | head -1); if [ -n \"$SESSION\" ]; then LANG=$(cat claude-memory/.lang 2>/dev/null || echo en); if [ \"$LANG\" = \"ru\" ]; then MSG=\"Ты только что изменил файл. Добавь его в секцию Затронутые файлы текущей сессии: claude-memory/sessions/${SESSION}\"; else MSG=\"You just modified a file. Add it to Files touched section in current session: claude-memory/sessions/${SESSION}\"; fi; echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"[obsidian-memory] $MSG\\\"}}\"; else echo \"{}\"; fi; fi; else echo \"{}\"; fi'",
+        "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TOOL_INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$TOOL_INPUT\" | grep -q \"claude-memory/\"; then echo \"{}\"; else SESSION=$(grep -rl \"status: in_progress\" claude-memory/sessions/ 2>/dev/null | head -1 | xargs -r basename); if [ -n \"$SESSION\" ]; then LANG=$(cat claude-memory/.lang 2>/dev/null || echo en); if [ \"$LANG\" = \"ru\" ]; then MSG=\"СЕЙЧАС добавь в claude-memory/sessions/${SESSION} секцию Затронутые файлы: - [[файл]] — ЧТО ИМЕННО изменилось\"; else MSG=\"NOW add to claude-memory/sessions/${SESSION} Files touched: - [[file]] — WHAT exactly changed\"; fi; echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"[obsidian-memory] $MSG\\\"}}\"; else echo \"{}\"; fi; fi; else echo \"{}\"; fi'",
+        "timeout": 3
+      }]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [{
+        "type": "command",
+        "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TOOL_INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$TOOL_INPUT\" | grep -q \"git commit\"; then SESSION=$(grep -rl \"status: in_progress\" claude-memory/sessions/ 2>/dev/null | head -1 | xargs -r basename); if [ -n \"$SESSION\" ]; then LANG=$(cat claude-memory/.lang 2>/dev/null || echo en); if [ \"$LANG\" = \"ru\" ]; then MSG=\"Git commit выполнен. СЕЙЧАС добавь хеш и описание в секцию Git commits: claude-memory/sessions/${SESSION}\"; else MSG=\"Git commit done. NOW add hash and description to Git commits section: claude-memory/sessions/${SESSION}\"; fi; echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"[obsidian-memory] $MSG\\\"}}\"; else echo \"{}\"; fi; else echo \"{}\"; fi; else echo \"{}\"; fi'",
         "timeout": 3
       }]
     }],
     "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TODAY=$(date +%Y-%m-%d); FOUND=$(ls claude-memory/sessions/ 2>/dev/null | grep \"^${TODAY}\" | sort -r | head -1); if [ -n \"$FOUND\" ]; then STATUS=$(grep \"^status:\" \"claude-memory/sessions/$FOUND\" 2>/dev/null | head -1); if echo \"$STATUS\" | grep -q \"in_progress\"; then LANG=$(cat claude-memory/.lang 2>/dev/null || echo en); if [ \"$LANG\" = \"ru\" ]; then MSG=\"Сессия $FOUND ещё in_progress. Обнови status: completed и добавь Следующие шаги.\"; else MSG=\"Session $FOUND is still in_progress. Update status: completed and add Next steps.\"; fi; echo \"{\\\"systemMessage\\\":\\\"[obsidian-memory] $MSG\\\"}\"; else echo \"{}\"; fi; else echo \"{}\"; fi; else echo \"{}\"; fi'",
+        "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then SESSION=$(grep -rl \"status: in_progress\" claude-memory/sessions/ 2>/dev/null | head -1 | xargs -r basename); if [ -n \"$SESSION\" ]; then LANG=$(cat claude-memory/.lang 2>/dev/null || echo en); if [ \"$LANG\" = \"ru\" ]; then MSG=\"Сессия ${SESSION} ещё in_progress. Обнови status: completed и добавь Следующие шаги.\"; else MSG=\"Session ${SESSION} is still in_progress. Update status: completed and add Next steps.\"; fi; echo \"{\\\"systemMessage\\\":\\\"[obsidian-memory] $MSG\\\"}\"; else echo \"{}\"; fi; else echo \"{}\"; fi'",
         "timeout": 5,
         "statusMessage": "Checking obsidian-memory session status..."
       }]

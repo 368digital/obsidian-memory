@@ -23,7 +23,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TOOL_INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$TOOL_INPUT\" | grep -q \"claude-memory/\"; then echo \"{}\"; else TODAY=$(date +%Y-%m-%d); SESSION=$(ls claude-memory/sessions/ 2>/dev/null | grep \"^${TODAY}\" | sort -r | head -1); if [ -n \"$SESSION\" ]; then echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"[obsidian-memory] Ты только что изменил файл. Добавь его в секцию Файлы затронуты текущей сессии: claude-memory/sessions/${SESSION}\\\"}}\"; else echo \"{}\"; fi; fi; else echo \"{}\"; fi'",
+            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TOOL_INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$TOOL_INPUT\" | grep -q \"claude-memory/\"; then echo \"{}\"; else SESSION=$(grep -rl \"status: in_progress\" claude-memory/sessions/ 2>/dev/null | head -1 | xargs -r basename); if [ -n \"$SESSION\" ]; then echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"[obsidian-memory] СЕЙЧАС добавь в claude-memory/sessions/${SESSION} секцию Затронутые файлы: - [[файл]] — ЧТО ИМЕННО изменилось (не просто путь, а описание изменения)\\\"}}\"; else echo \"{}\"; fi; fi; else echo \"{}\"; fi'",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TOOL_INPUT=\"$CLAUDE_TOOL_INPUT\"; if echo \"$TOOL_INPUT\" | grep -q \"git commit\"; then SESSION=$(grep -rl \"status: in_progress\" claude-memory/sessions/ 2>/dev/null | head -1 | xargs -r basename); if [ -n \"$SESSION\" ]; then echo \"{\\\"hookSpecificOutput\\\":{\\\"hookEventName\\\":\\\"PostToolUse\\\",\\\"additionalContext\\\":\\\"[obsidian-memory] Git commit выполнен. СЕЙЧАС добавь хеш и описание коммита в секцию Git commits сессии: claude-memory/sessions/${SESSION}\\\"}}\"; else echo \"{}\"; fi; else echo \"{}\"; fi; else echo \"{}\"; fi'",
             "timeout": 3
           }
         ]
@@ -34,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then TODAY=$(date +%Y-%m-%d); FOUND=$(ls claude-memory/sessions/ 2>/dev/null | grep \"^${TODAY}\" | sort -r | head -1); if [ -n \"$FOUND\" ]; then STATUS=$(grep \"^status:\" \"claude-memory/sessions/$FOUND\" 2>/dev/null | head -1); if echo \"$STATUS\" | grep -q \"in_progress\"; then echo \"{\\\"systemMessage\\\":\\\"[obsidian-memory] Сессия $FOUND ещё in_progress. Обнови status: completed и добавь Следующие шаги.\\\"}\"; else echo \"{}\"; fi; else echo \"{}\"; fi; else echo \"{}\"; fi'",
+            "command": "bash -c 'if [ -d \"claude-memory/sessions\" ]; then SESSION=$(grep -rl \"status: in_progress\" claude-memory/sessions/ 2>/dev/null | head -1 | xargs -r basename); if [ -n \"$SESSION\" ]; then echo \"{\\\"systemMessage\\\":\\\"[obsidian-memory] Сессия ${SESSION} ещё in_progress. Обнови status: completed и добавь Следующие шаги.\\\"}\"; else echo \"{}\"; fi; else echo \"{}\"; fi'",
             "timeout": 5,
             "statusMessage": "Checking obsidian-memory session status..."
           }
